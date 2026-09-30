@@ -1,0 +1,4 @@
+{
+  "extends": "./bundler.json",
+  "include": ["../invalid/unchecked-index.ts"]
+}

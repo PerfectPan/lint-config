@@ -1,0 +1,5 @@
+{
+  "extends": "@perfectpan/lint-config/tsconfig/bundler.json",
+  "compilerOptions": { "noEmit": true },
+  "include": ["../src/**/*.ts"]
+}

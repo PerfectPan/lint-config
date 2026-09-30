@@ -1,0 +1,63 @@
+{
+  "name": "@perfectpan/lint-config",
+  "version": "0.1.0",
+  "private": false,
+  "description": "Shared oxlint, oxfmt and tsconfig rules for PerfectPan's JS/TS repositories",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/PerfectPan/lint-config.git"
+  },
+  "homepage": "https://github.com/PerfectPan/lint-config#readme",
+  "bugs": {
+    "url": "https://github.com/PerfectPan/lint-config/issues"
+  },
+  "type": "module",
+  "exports": {
+    "./oxlint.json": "./oxlint.json",
+    "./oxfmt.json": "./oxfmt.json",
+    "./tsconfig/base.json": "./tsconfig/base.json",
+    "./tsconfig/node.json": "./tsconfig/node.json",
+    "./tsconfig/bundler.json": "./tsconfig/bundler.json",
+    "./vite-plus": {
+      "types": "./vite-plus.d.ts",
+      "default": "./vite-plus.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "oxlint.json",
+    "oxfmt.json",
+    "tsconfig",
+    "vite-plus.js",
+    "vite-plus.d.ts"
+  ],
+  "scripts": {
+    "test": "./scripts/self-test.sh"
+  },
+  "peerDependencies": {
+    "oxfmt": ">=0.57.0",
+    "oxlint": ">=1.72.0",
+    "oxlint-tsgolint": ">=0.24.0",
+    "typescript": ">=6.0.0",
+    "vite-plus": ">=0.2.4"
+  },
+  "peerDependenciesMeta": {
+    "oxfmt": {
+      "optional": true
+    },
+    "oxlint": {
+      "optional": true
+    },
+    "oxlint-tsgolint": {
+      "optional": true
+    },
+    "typescript": {
+      "optional": true
+    },
+    "vite-plus": {
+      "optional": true
+    }
+  },
+  "packageManager": "pnpm@10.34.5"
+}

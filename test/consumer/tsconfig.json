@@ -1,0 +1,4 @@
+{
+  "extends": "@perfectpan/lint-config/tsconfig/node.json",
+  "include": ["src/**/*.ts", "invalid/**/*.ts"]
+}

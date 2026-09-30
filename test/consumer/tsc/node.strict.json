@@ -1,0 +1,4 @@
+{
+  "extends": "./node.json",
+  "include": ["../invalid/unchecked-index.ts"]
+}

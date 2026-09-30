@@ -1,0 +1,4 @@
+{
+  "extends": "@perfectpan/lint-config/tsconfig/bundler.json",
+  "include": ["../vite.config.ts", "../oxlint-package.config.ts", "../oxfmt-package.config.ts"]
+}
