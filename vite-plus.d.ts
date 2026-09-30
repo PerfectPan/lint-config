@@ -12,6 +12,7 @@ export declare const lint: {
     typeCheck: boolean;
   };
   rules: {
+    curly: ["error", "all"];
     "no-unsafe-optional-chaining": "error";
     "no-unused-vars": "error";
     "vitest/no-conditional-expect": "off";
