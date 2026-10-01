@@ -15,7 +15,13 @@
     "max-lines": ["error", { "max": 1000 }],
     "no-unsafe-optional-chaining": "error",
     "no-unused-vars": "error",
-    "unicorn/filename-case": ["error", { "case": "kebabCase" }],
+    "unicorn/filename-case": [
+      "error",
+      {
+        "case": "kebabCase",
+        "ignore": ["^\\[\\[?(?:\\.\\.\\.)?\\w+\\]\\]?\\.", "^(?:\\$\\w*|\\(\\$\\w+\\)|\\{-\\$\\w+\\})\\."]
+      }
+    ],
     "vitest/no-conditional-expect": "off"
   },
   "overrides": [

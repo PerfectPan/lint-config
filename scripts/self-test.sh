@@ -44,7 +44,9 @@ check_lint() {
   expect_fail "$label: type check (noUncheckedIndexedAccess)" "TS2532" "$@" invalid/unchecked-index.ts
   expect_fail "$label: denyWarnings" "no-console" "$@" invalid/warning.ts
   expect_fail "$label: unused disable directive" "Unused oxlint-disable directive" "$@" invalid/unused-directive.ts
-  expect_fail "$label: file name not kebab-case" "unicorn(filename-case)" "$@" invalid/badName.ts
+  expect_fail "$label: file name not kebab-case" "unicorn(filename-case)" "$@" invalid/FooBar.tsx
+  expect_pass "$label: framework route parameter file names" "$@" src/routes
+  expect_fail "$label: route parameter followed by more name" "unicorn(filename-case)" "$@" "invalid/[id]Helper.ts"
   expect_fail "$label: source file over 1000 lines" "eslint(max-lines)" "$@" tmp/long-source.ts
   expect_pass "$label: test file over 1000 lines" "$@" tmp/long-source.test.ts
   expect_fail "$label: two components in one .tsx" "react(no-multi-comp)" "$@" invalid/two-components.tsx

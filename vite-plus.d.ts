@@ -16,7 +16,7 @@ export declare const lint: {
     "max-lines": ["error", { max: number }];
     "no-unsafe-optional-chaining": "error";
     "no-unused-vars": "error";
-    "unicorn/filename-case": ["error", { case: "kebabCase" }];
+    "unicorn/filename-case": ["error", { case: "kebabCase"; ignore: string[] }];
     "vitest/no-conditional-expect": "off";
   };
   overrides: Array<{

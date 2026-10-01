@@ -8,7 +8,7 @@ The package is not published to npm. Install it as a git dependency pinned to a 
 ```json
 {
   "devDependencies": {
-    "@perfectpan/lint-config": "github:PerfectPan/lint-config#v0.3.0"
+    "@perfectpan/lint-config": "github:PerfectPan/lint-config#v0.3.1"
   }
 }
 ```
@@ -64,9 +64,23 @@ directories out, for example framework route files.
   dot, with leading and trailing `_` removed; dotfiles and files named `index` are skipped. Directory names and files
   that oxlint does not lint (Markdown, JSON, CSS) are not checked.
 
-  Names that pass: `foo-bar.ts`, `foo.test.ts`, `vite.config.ts`, `index.d.ts`, `_app.tsx`, `__root.tsx`, `[id].tsx`,
-  `[...slug].tsx`, `room.$roomId.tsx`, `room._index.tsx`. Names that fail: `FooBar.tsx`, `useFoo.ts`, `foo_bar.ts`,
-  `$roomId.tsx`, `$postId.edit.tsx`, `[roomId].tsx`, `_myLayout.tsx`.
+  A route parameter in a file name is the parameter name the code reads, usually camelCase, and the framework
+  decides its syntax. The shared options therefore ignore a base name whose first dot-segment is exactly one
+  parameter. The `ignore` regular expressions match the base name:
+
+  - `^\[\[?(?:\.\.\.)?\w+\]\]?\.`: Next.js dynamic segments `[roomId].tsx`, `[...slugParts].tsx` and
+    `[[...slugParts]].tsx`.
+  - `^(?:\$\w*|\(\$\w+\)|\{-\$\w+\})\.`: TanStack Router, Remix and React Router parameters `$postId.tsx`,
+    `$postId.edit.tsx`, `$postId_.edit.tsx` and the splat `$.tsx`, plus the optional forms `($langCode).tsx` (Remix,
+    React Router) and `{-$localeCode}.tsx` (TanStack Router).
+
+  A parameter followed by more name in the same segment is still checked, so `[id]Helper.tsx` and
+  `[roomId]-panel.tsx` fail. Static segments before a parameter are checked as usual: `room.$roomId.tsx` passes and
+  `roomList.$roomId.tsx` fails.
+
+  Names that pass: `foo-bar.ts`, `foo.test.ts`, `vite.config.ts`, `index.d.ts`, `_app.tsx`, `__root.tsx`,
+  `room._index.tsx`, and the route parameters above. Names that fail: `FooBar.tsx`, `useFoo.ts`, `foo_bar.ts`,
+  `_myLayout.tsx`, `[id]Helper.tsx`.
 
 - **`max-lines: 1000`:** a file past 1000 lines usually holds more than one responsibility. Every line counts,
   including blank lines and comments; a final newline does not start a new line, so for files that end with one the
@@ -125,7 +139,7 @@ The snippets below are the ones exercised by the self-test in `test/consumer`.
 ### Standalone oxlint and oxfmt
 
 ```sh
-pnpm add -D oxlint oxlint-tsgolint oxfmt typescript "github:PerfectPan/lint-config#v0.3.0"
+pnpm add -D oxlint oxlint-tsgolint oxfmt typescript "github:PerfectPan/lint-config#v0.3.1"
 ```
 
 `oxlint-tsgolint` is required because the base config enables `typeAware` and `typeCheck`.
@@ -246,19 +260,26 @@ Frameworks decide some file names and exports, and generated or vendored code fo
 paths with a local override instead of renaming or splitting them. The snippets use `.oxlintrc.json`; the same
 objects go into `overrides` in `oxlint.config.ts` or vite-plus.
 
-File names: flat-route names such as `room.$roomId.tsx`, `room._index.tsx`, `[id].tsx` and `_app.tsx` already pass,
-because only the part before the first dot is checked and `_` is trimmed. TanStack Router's `$roomId.tsx` and a
-Next.js `[roomId].tsx` with a camelCase parameter fail. Turn the rule off for the route directory:
+File names: route files named after the conventions of Next.js, TanStack Router, Remix and React Router already
+pass (see [File rules](#file-rules)). For other names a framework or generator decides, turn the rule off for the
+directory:
 
 ```json
-{ "files": ["src/routes/**"], "rules": { "unicorn/filename-case": "off" } }
+{ "files": ["src/generated/**"], "rules": { "unicorn/filename-case": "off" } }
 ```
 
-or keep it and ignore base names by regular expression. `ignore` matches the file name, not the path, and rule
-options replace the shared ones, so repeat `case`:
+or add base-name regular expressions to `ignore`. Rule options replace the shared ones instead of merging with
+them, so repeat `case` and the shared `ignore` entries. In `oxlint.config.ts` or vite-plus, spread them from the
+shared config:
 
-```json
-{ "rules": { "unicorn/filename-case": ["error", { "case": "kebabCase", "ignore": ["^\\$"] }] } }
+```ts
+const [, filenameCase] = lint.rules["unicorn/filename-case"];
+
+// in the lint config
+rules: {
+  ...lint.rules,
+  "unicorn/filename-case": ["error", { ...filenameCase, ignore: [...filenameCase.ignore, "^\\d{4}_"] }]
+}
 ```
 
 Components: React Router and Remix route modules export `ErrorBoundary`, `Layout` or `HydrateFallback` next to the
@@ -303,10 +324,11 @@ pnpm test
 
 `pnpm test` runs `scripts/self-test.sh`, which lints, formats and type-checks the fixture project in
 `test/consumer`. Each negative case must fail with a specific diagnostic (an unused variable, a type error from
-`noUncheckedIndexedAccess`, a warning under `denyWarnings`, an unused disable directive, a camelCase file name, a
-1001-line source file, two components in one `.tsx` file), so a config that stops applying fails the test. The clean
-sources include a Solid-style component that React's correctness rules would report and a test file with two
-components, and the script generates a 1001-line test file that must pass. It also checks that the react override
+`noUncheckedIndexedAccess`, a warning under `denyWarnings`, an unused disable directive, a PascalCase file name, a
+route parameter followed by more name, a 1001-line source file, two components in one `.tsx` file), so a config that
+stops applying fails the test. The clean sources include framework route file names, a Solid-style component that
+React's correctness rules would report and a test file with two components, and the script generates a 1001-line
+test file that must pass. It also checks that the react override
 lists every react rule of the installed oxlint.
 
 ## License
