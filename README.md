@@ -46,8 +46,16 @@ optional peer dependencies; install the ones your setup uses.
   `oxlint-tsgolint`, using the repository's `tsconfig.json`. A lint run therefore also reports type errors.
 - **Rules:** `no-unused-vars` and `no-unsafe-optional-chaining` are errors. `vitest/no-conditional-expect` is off,
   because tests that branch on a result type and assert each branch are a common, readable pattern.
+- **`curly: ["error", "all"]`:** every `if`, `else`, `for`, `while` and `do` body is braced, including single
+  statements. An unbraced body invites the bug where a second statement is added at the same indentation but runs
+  unconditionally, and braced bodies keep diffs to the changed line. `oxlint --fix` inserts the braces on one line
+  (`if (x) {return 1;}`); running the formatter afterwards expands the block onto separate lines.
 
 ### Format
+
+`oxfmt.json` is the default style for new repositories. An existing repository may override the quote, semicolon
+and trailing-comma options to avoid reformatting its whole history; for example agent-trace keeps `semi: false`,
+`singleQuote: true` and `trailingComma: "all"`.
 
 - `printWidth: 120`: fewer wrapped lines for TypeScript signatures and template strings.
 - `trailingComma: "none"`.
