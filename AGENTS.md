@@ -29,7 +29,8 @@ fixes, looser rules and docs are a patch.
 1. `pnpm test` passes, with a self-test case that fails without the change.
 2. For a new or stricter rule, measure the impact read-only on each consumer: run oxlint with only the changed rules
    over its source and record hits per rule and file.
-3. Bump `version` in `package.json`; update `vite-plus.d.ts` and README Decisions with the change.
+3. Bump `version` in `package.json` and the `#vX.Y.Z` in README's install examples; update `vite-plus.d.ts` and README
+   Decisions with the change.
 4. Commit, push `main`, and wait for CI on that commit (`gh run watch`).
 5. `git tag -a vX.Y.Z -m vX.Y.Z && git push origin vX.Y.Z`, then `gh release create vX.Y.Z --title vX.Y.Z` with
    notes covering what changed, what newly fails and how to exempt it, the impact counts from step 2, and the upgrade
