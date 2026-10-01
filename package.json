@@ -1,6 +1,6 @@
 {
   "name": "@perfectpan/lint-config",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "private": false,
   "description": "Shared oxlint, oxfmt and tsconfig rules for PerfectPan's JS/TS repositories",
   "license": "MIT",

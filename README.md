@@ -122,9 +122,14 @@ and trailing-comma options to avoid reformatting its whole history; for example 
 ### TypeScript
 
 `tsconfig/base.json` enables `strict` plus the flags that catch real bugs under strict mode:
-`exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`, `noFallthroughCasesInSwitch`, `noUnusedLocals`,
-`noUnusedParameters`, `allowUnreachableCode: false`, `allowUnusedLabels: false` and
-`forceConsistentCasingInFileNames`. `verbatimModuleSyntax` makes type-only imports explicit, so the emitted imports
+`noUncheckedIndexedAccess`, `noFallthroughCasesInSwitch`, `noUnusedLocals`, `noUnusedParameters`,
+`allowUnreachableCode: false`, `allowUnusedLabels: false` and `forceConsistentCasingInFileNames`.
+
+`exactOptionalPropertyTypes` is off by default. It separates an absent property from one set to `undefined`, which
+matters for spreads over defaults and for serialized data, but most component props and parser results pass
+`undefined` through on purpose, and repositories adopting it tended to widen every optional type to `?: T | undefined`,
+which defeats the flag. A repository whose code already distinguishes the two cases turns it on in its own
+`tsconfig.json`. `verbatimModuleSyntax` makes type-only imports explicit, so the emitted imports
 match the source. `skipLibCheck` is on because type errors inside dependencies are not actionable. `target` is
 `ES2022`.
 
