@@ -8,7 +8,7 @@ The package is not published to npm. Install it as a git dependency pinned to a 
 ```json
 {
   "devDependencies": {
-    "@perfectpan/lint-config": "github:PerfectPan/lint-config#v0.1.0"
+    "@perfectpan/lint-config": "github:PerfectPan/lint-config#v0.3.0"
   }
 }
 ```
@@ -19,7 +19,7 @@ MoonBit repositories do not use this package; it only covers JavaScript and Type
 
 | Export                                          | What it is                                                                   |
 | ----------------------------------------------- | ---------------------------------------------------------------------------- |
-| `@perfectpan/lint-config/oxlint.json`           | oxlint base config: plugins, categories, options and rules                   |
+| `@perfectpan/lint-config/oxlint.json`           | oxlint base config: plugins, categories, options, rules and overrides        |
 | `@perfectpan/lint-config/oxfmt.json`            | oxfmt options                                                                |
 | `@perfectpan/lint-config/tsconfig/base.json`    | strict compiler options without module, output, `types` or `include` choices |
 | `@perfectpan/lint-config/tsconfig/node.json`    | `base.json` + `module`/`moduleResolution` `NodeNext`                         |
@@ -28,7 +28,8 @@ MoonBit repositories do not use this package; it only covers JavaScript and Type
 
 `vite-plus` reads `oxlint.json` and `oxfmt.json` at import time, so the JSON files are the only source of the values.
 The package has no runtime dependencies. `oxlint`, `oxlint-tsgolint`, `oxfmt`, `typescript` and `vite-plus` are
-optional peer dependencies; install the ones your setup uses.
+optional peer dependencies; install the ones your setup uses. The oxlint config needs oxlint 1.79 or later (see
+[File rules](#file-rules)).
 
 ## Decisions
 
@@ -37,7 +38,8 @@ optional peer dependencies; install the ones your setup uses.
 - **Categories:** `correctness` is an error. Other categories stay off by default; a repository opts in per category
   (for example `"suspicious": "warn"`).
 - **Plugins:** `import`, `node`, `oxc`, `promise`, `typescript`, `unicorn`, `vitest`. Their `correctness` rules run
-  by default; rules in other categories run only when a repository enables them.
+  by default; rules in other categories run only when a repository enables them. `react` is enabled only in an
+  override for `.jsx` and `.tsx` files, for the single rule described under [File rules](#file-rules).
 - **`denyWarnings: true`:** a warning fails the run. Rules are either worth fixing (error) or not worth reporting
   (off); a warning that never fails CI accumulates until nobody reads the output.
 - **`reportUnusedDisableDirectives: "error"`:** a stale `oxlint-disable` comment is an error, so suppressions are
@@ -50,6 +52,48 @@ optional peer dependencies; install the ones your setup uses.
   statements. An unbraced body invites the bug where a second statement is added at the same indentation but runs
   unconditionally, and braced bodies keep diffs to the changed line. `oxlint --fix` inserts the braces on one line
   (`if (x) {return 1;}`); running the formatter afterwards expands the block onto separate lines.
+
+### File rules
+
+Three rules constrain files rather than code: kebab-case names, at most 1000 lines, and one component per component
+file. They keep files easy to find and short. [Exempting paths](#exempting-paths) shows how a repository opts
+directories out, for example framework route files.
+
+- **`unicorn/filename-case` with `kebabCase`:** one naming scheme for every source file, and no case-only renames,
+  which Git misses on case-insensitive file systems. The rule checks only the part of the base name before the first
+  dot, with leading and trailing `_` removed; dotfiles and files named `index` are skipped. Directory names and files
+  that oxlint does not lint (Markdown, JSON, CSS) are not checked.
+
+  Names that pass: `foo-bar.ts`, `foo.test.ts`, `vite.config.ts`, `index.d.ts`, `_app.tsx`, `__root.tsx`, `[id].tsx`,
+  `[...slug].tsx`, `room.$roomId.tsx`, `room._index.tsx`. Names that fail: `FooBar.tsx`, `useFoo.ts`, `foo_bar.ts`,
+  `$roomId.tsx`, `$postId.edit.tsx`, `[roomId].tsx`, `_myLayout.tsx`.
+
+- **`max-lines: 1000`:** a file past 1000 lines usually holds more than one responsibility. Every line counts,
+  including blank lines and comments; a final newline does not start a new line, so for files that end with one the
+  count matches `wc -l`. Test files are exempt through an override matching `**/*.{test,spec}.*`, `**/__tests__/**`,
+  `**/test/**` and `**/tests/**`, because scenario and table-driven suites grow long without getting harder to
+  follow.
+
+- **`react/no-multi-comp` in `.jsx` and `.tsx` files:** a component file holds one component. The rule counts
+  capitalized functions and arrow functions that return JSX, `memo` and `forwardRef` wrappers and class components;
+  a component defined inside another component is not counted. Solid components are detected the same way. Test
+  files are excluded, so a test can define several helper components.
+
+  The rule exists only in oxlint's `react` plugin, and enabling a plugin, even in an override, also enables its rules
+  in every category the repository turns on. Several of them report valid Solid code: `react/jsx-key` asks for keys
+  that Solid does not use, and the React Compiler rules (`react/purity`, `react/refs`, `react/immutability` and
+  others) assume that a component body runs on every render. On agent-trace's Solid app they report 7 errors. The
+  override therefore turns off every other react rule, so it adds only `react/no-multi-comp` whatever categories the
+  repository enables. `pnpm test` fails when an oxlint upgrade adds a react rule that the override does not list.
+
+  Listing those rules by name requires **oxlint 1.79 or later**; older versions refuse to load the config with
+  `Rule '…' not found in plugin 'react'`. vite-plus runs the project's own `oxlint` when one is installed and its
+  bundled copy otherwise. vite-plus 0.2.x bundles an older oxlint, so install `oxlint` next to it or use vite-plus
+  0.3.0 or later.
+
+  `react/only-export-components` is a related rule with a different purpose: it keeps Vite Fast Refresh working by
+  requiring that a file exporting components exports nothing else. A React and Vite repository can enable it in its
+  own `.jsx`/`.tsx` override (see [Exempting paths](#exempting-paths) for why that override lists the plugin).
 
 ### Format
 
@@ -81,7 +125,7 @@ The snippets below are the ones exercised by the self-test in `test/consumer`.
 ### Standalone oxlint and oxfmt
 
 ```sh
-pnpm add -D oxlint oxlint-tsgolint oxfmt typescript "github:PerfectPan/lint-config#v0.1.0"
+pnpm add -D oxlint oxlint-tsgolint oxfmt typescript "github:PerfectPan/lint-config#v0.3.0"
 ```
 
 `oxlint-tsgolint` is required because the base config enables `typeAware` and `typeCheck`.
@@ -148,6 +192,7 @@ export default defineConfig({
       "no-console": "error"
     },
     overrides: [
+      ...lint.overrides,
       {
         files: ["packages/core/src/**/*.ts"],
         rules: { "no-restricted-imports": ["error", { patterns: ["node:*"] }] }
@@ -157,8 +202,10 @@ export default defineConfig({
 });
 ```
 
-Spread the nested objects (`rules`, `options`) as well when adding to them; a plain `rules: {}` replaces the shared
-rules instead of extending them.
+Spread the nested values (`rules`, `options`, `overrides`) as well when adding to them. A plain `rules: {}` replaces
+the shared rules instead of extending them, and a plain `overrides: []` drops the test-file exemption from
+`max-lines` and the `react/no-multi-comp` override. Put `...lint.overrides` first so that the repository's own
+overrides apply after the shared ones.
 
 ### TypeScript
 
@@ -183,11 +230,64 @@ between packages, extra categories, environment globals and output settings. Key
 values:
 
 - oxlint JSON and `oxlint.config.ts`: `extends` is applied first, then the local file's `rules`, `overrides` and
-  other keys.
+  other keys. Shared overrides apply before local overrides.
 - vite-plus and `oxfmt.config.ts`: normal object spread; later keys win.
 - tsconfig: local `compilerOptions` override the extended ones key by key.
 
+An override always wins over top-level `rules` for the files it matches. A top-level setting for a `react/*` rule
+therefore has no effect on `.jsx` and `.tsx` files, where the shared override turns every react rule except
+`react/no-multi-comp` off; set react rules in a local override as shown below.
+
 Change a shared default here only when every consuming repository should follow it.
+
+### Exempting paths
+
+Frameworks decide some file names and exports, and generated or vendored code follows its generator. Exempt such
+paths with a local override instead of renaming or splitting them. The snippets use `.oxlintrc.json`; the same
+objects go into `overrides` in `oxlint.config.ts` or vite-plus.
+
+File names: flat-route names such as `room.$roomId.tsx`, `room._index.tsx`, `[id].tsx` and `_app.tsx` already pass,
+because only the part before the first dot is checked and `_` is trimmed. TanStack Router's `$roomId.tsx` and a
+Next.js `[roomId].tsx` with a camelCase parameter fail. Turn the rule off for the route directory:
+
+```json
+{ "files": ["src/routes/**"], "rules": { "unicorn/filename-case": "off" } }
+```
+
+or keep it and ignore base names by regular expression. `ignore` matches the file name, not the path, and rule
+options replace the shared ones, so repeat `case`:
+
+```json
+{ "rules": { "unicorn/filename-case": ["error", { "case": "kebabCase", "ignore": ["^\\$"] }] } }
+```
+
+Components: React Router and Remix route modules export `ErrorBoundary`, `Layout` or `HydrateFallback` next to the
+default component, and shadcn/ui files export a family of components. Turn `react/no-multi-comp` off for them with
+an override that also lists the react plugin:
+
+```json
+{
+  "files": ["app/routes/**/*.tsx", "app/root.tsx", "app/components/ui/**/*.tsx"],
+  "plugins": ["react"],
+  "rules": { "react/no-multi-comp": "off" }
+}
+```
+
+- Without `"plugins": ["react"]` oxlint ignores a `react/*` setting in an override without any message.
+- Keep `files` to `.jsx` and `.tsx` source files. The override enables the react plugin for every file it matches;
+  for files outside the shared override (`.ts` files, test files) that also enables the react rules of the
+  categories the repository turns on.
+
+A React repository that wants react rules enables them with the same override shape:
+
+```json
+{
+  "files": ["**/*.{jsx,tsx}"],
+  "excludeFiles": ["**/*.{test,spec}.*", "**/__tests__/**", "**/test/**", "**/tests/**"],
+  "plugins": ["react"],
+  "rules": { "react/jsx-key": "error", "react/only-export-components": "error" }
+}
+```
 
 ## Versioning
 
@@ -203,8 +303,11 @@ pnpm test
 
 `pnpm test` runs `scripts/self-test.sh`, which lints, formats and type-checks the fixture project in
 `test/consumer`. Each negative case must fail with a specific diagnostic (an unused variable, a type error from
-`noUncheckedIndexedAccess`, a warning under `denyWarnings`, an unused disable directive), so a config that stops
-applying fails the test.
+`noUncheckedIndexedAccess`, a warning under `denyWarnings`, an unused disable directive, a camelCase file name, a
+1001-line source file, two components in one `.tsx` file), so a config that stops applying fails the test. The clean
+sources include a Solid-style component that React's correctness rules would report and a test file with two
+components, and the script generates a 1001-line test file that must pass. It also checks that the react override
+lists every react rule of the installed oxlint.
 
 ## License
 

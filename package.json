@@ -1,6 +1,6 @@
 {
   "name": "@perfectpan/lint-config",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "private": false,
   "description": "Shared oxlint, oxfmt and tsconfig rules for PerfectPan's JS/TS repositories",
   "license": "MIT",
@@ -37,7 +37,7 @@
   },
   "peerDependencies": {
     "oxfmt": ">=0.57.0",
-    "oxlint": ">=1.72.0",
+    "oxlint": ">=1.79.0",
     "oxlint-tsgolint": ">=0.24.0",
     "typescript": ">=6.0.0",
     "vite-plus": ">=0.2.4"

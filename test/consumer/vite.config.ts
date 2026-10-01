@@ -9,6 +9,7 @@ export default defineConfig({
   lint: {
     ...lint,
     overrides: [
+      ...lint.overrides,
       {
         files: ["invalid/warning.ts"],
         rules: { "no-console": "warn" }

@@ -13,10 +13,18 @@ export declare const lint: {
   };
   rules: {
     curly: ["error", "all"];
+    "max-lines": ["error", { max: number }];
     "no-unsafe-optional-chaining": "error";
     "no-unused-vars": "error";
+    "unicorn/filename-case": ["error", { case: "kebabCase" }];
     "vitest/no-conditional-expect": "off";
   };
+  overrides: Array<{
+    files: string[];
+    excludeFiles?: string[];
+    plugins?: Array<"react">;
+    rules: Record<string, "error" | "off">;
+  }>;
 };
 
 export declare const fmt: {
