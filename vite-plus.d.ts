@@ -16,6 +16,7 @@ export declare const lint: {
     "max-lines": ["error", { max: number }];
     "no-unsafe-optional-chaining": "error";
     "no-unused-vars": "error";
+    "no-use-before-define": ["error", { functions: boolean }];
     "unicorn/filename-case": ["error", { case: "kebabCase"; ignore: string[] }];
     "vitest/no-conditional-expect": "off";
   };

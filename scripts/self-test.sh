@@ -40,6 +40,7 @@ check_lint() {
   shift
   expect_pass "$label: clean source" "$@" src
   expect_fail "$label: unused variable" "no-unused-vars" "$@" invalid/unused-var.ts
+  expect_fail "$label: const used before declaration" "no-use-before-define" "$@" invalid/use-before-define.ts
   expect_fail "$label: unbraced if body" "eslint(curly)" "$@" invalid/unbraced-if.ts
   expect_fail "$label: type check (noUncheckedIndexedAccess)" "TS2532" "$@" invalid/unchecked-index.ts
   expect_fail "$label: denyWarnings" "no-console" "$@" invalid/warning.ts

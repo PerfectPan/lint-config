@@ -14,3 +14,22 @@ export function describe(items: readonly string[], options: Options = {}, fallba
   }
   return `${options.label ?? defaults.label}: ${first}`;
 }
+
+// Declared after their first use on purpose: function declarations hoist, so the shared no-use-before-define
+// setting (functions: false) keeps a helper below its entry function allowed, and a type referenced before
+// its declaration stays allowed through the default ignoreTypeReferences.
+export function runFallback(): string {
+  return fallback();
+}
+
+function fallback(): string {
+  return describe([]);
+}
+
+export function makeNamed(label: string): Named {
+  return { label };
+}
+
+interface Named {
+  label: string;
+}

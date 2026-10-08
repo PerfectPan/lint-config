@@ -8,7 +8,7 @@ The package is not published to npm. Install it as a git dependency pinned to a 
 ```json
 {
   "devDependencies": {
-    "@perfectpan/lint-config": "github:PerfectPan/lint-config#v0.3.2"
+    "@perfectpan/lint-config": "github:PerfectPan/lint-config#v0.4.0"
   }
 }
 ```
@@ -52,6 +52,13 @@ optional peer dependencies; install the ones your setup uses. The oxlint config 
   statements. An unbraced body invites the bug where a second statement is added at the same indentation but runs
   unconditionally, and braced bodies keep diffs to the changed line. `oxlint --fix` inserts the braces on one line
   (`if (x) {return 1;}`); running the formatter afterwards expands the block onto separate lines.
+- **`no-use-before-define` with `functions: false`:** a `const`, `let`, `var`, `class` or `enum` in any scope —
+  including an arrow-function constant and a name in an `export { name }` list — must not be referenced above its
+  declaration, so a file reads top-down and the reader meets a name after learning what it holds. TypeScript already
+  rejects a direct top-level read in the temporal dead zone (TS2448–TS2450); this rule also catches references inside
+  function bodies, which only fail at runtime when the function runs before the declaration. Function declarations
+  are exempt because they hoist: an entry function at the top calling helpers below it is the intended reading order.
+  Type-only references stay allowed through the default `ignoreTypeReferences`.
 
 ### File rules
 
@@ -144,7 +151,7 @@ The snippets below are the ones exercised by the self-test in `test/consumer`.
 ### Standalone oxlint and oxfmt
 
 ```sh
-pnpm add -D oxlint oxlint-tsgolint oxfmt typescript "github:PerfectPan/lint-config#v0.3.2"
+pnpm add -D oxlint oxlint-tsgolint oxfmt typescript "github:PerfectPan/lint-config#v0.4.0"
 ```
 
 `oxlint-tsgolint` is required because the base config enables `typeAware` and `typeCheck`.
@@ -328,13 +335,14 @@ pnpm test
 ```
 
 `pnpm test` runs `scripts/self-test.sh`, which lints, formats and type-checks the fixture project in
-`test/consumer`. Each negative case must fail with a specific diagnostic (an unused variable, a type error from
-`noUncheckedIndexedAccess`, a warning under `denyWarnings`, an unused disable directive, a PascalCase file name, a
-route parameter followed by more name, a 1001-line source file, two components in one `.tsx` file), so a config that
-stops applying fails the test. The clean sources include framework route file names, a Solid-style component that
-React's correctness rules would report and a test file with two components, and the script generates a 1001-line
-test file that must pass. It also checks that the react override
-lists every react rule of the installed oxlint.
+`test/consumer`. Each negative case must fail with a specific diagnostic (an unused variable, a `const` read above
+its declaration, a type error from `noUncheckedIndexedAccess`, a warning under `denyWarnings`, an unused disable
+directive, a PascalCase file name, a route parameter followed by more name, a 1001-line source file, two components
+in one `.tsx` file), so a config that stops applying fails the test. The clean sources include framework route file
+names, a Solid-style component that React's correctness rules would report, a test file with two components, a
+function declared below its caller and a type referenced before its declaration, and the script generates a
+1001-line test file that must pass. It also checks that the react override lists every react rule of the installed
+oxlint.
 
 ## License
 
