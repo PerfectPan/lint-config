@@ -14,6 +14,7 @@
     "curly": ["error", "all"],
     "max-lines": ["error", { "max": 1000 }],
     "no-unsafe-optional-chaining": "error",
+    "no-unnecessary-condition": ["error", { "allowConstantLoopConditions": "always" }],
     "no-unused-vars": "error",
     "no-use-before-define": ["error", { "functions": false }],
     "unicorn/filename-case": [

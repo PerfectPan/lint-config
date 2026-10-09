@@ -22,6 +22,14 @@ export function runFallback(): string {
   return fallback();
 }
 
+export function spinUntil(until: () => boolean): void {
+  while (true) {
+    if (until()) {
+      return;
+    }
+  }
+}
+
 function fallback(): string {
   return describe([]);
 }

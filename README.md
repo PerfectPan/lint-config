@@ -8,7 +8,7 @@ The package is not published to npm. Install it as a git dependency pinned to a 
 ```json
 {
   "devDependencies": {
-    "@perfectpan/lint-config": "github:PerfectPan/lint-config#v0.4.0"
+    "@perfectpan/lint-config": "github:PerfectPan/lint-config#v0.5.0"
   }
 }
 ```
@@ -52,6 +52,14 @@ optional peer dependencies; install the ones your setup uses. The oxlint config 
   statements. An unbraced body invites the bug where a second statement is added at the same indentation but runs
   unconditionally, and braced bodies keep diffs to the changed line. `oxlint --fix` inserts the braces on one line
   (`if (x) {return 1;}`); running the formatter afterwards expands the block onto separate lines.
+- **`no-unnecessary-condition` with `allowConstantLoopConditions: "always"`:** a condition, optional chain or `??`
+  whose outcome the types already decide is an error (type-aware; runs through the `typeAware` pass above). An
+  optional chain or fallback on a value that is never nullish hides the real shape of the data and survives refactors
+  that make a field required; schemas at the boundary make fields required, and this rule removes the leftover
+  `?.` and `??`. It does not ban `?.` or `??` on genuinely optional values — only on values the types prove are
+  never nullish or always falsy. `allowConstantLoopConditions: "always"` keeps `while (true)` as the intentional
+  infinite-loop idiom; `while (false)` and other constant loop conditions still fail. `checkTypePredicates` keeps
+  its default (`false`).
 - **`no-use-before-define` with `functions: false`:** a `const`, `let`, `var`, `class` or `enum` in any scope —
   including an arrow-function constant and a name in an `export { name }` list — must not be referenced above its
   declaration, so a file reads top-down and the reader meets a name after learning what it holds. TypeScript already
@@ -151,7 +159,7 @@ The snippets below are the ones exercised by the self-test in `test/consumer`.
 ### Standalone oxlint and oxfmt
 
 ```sh
-pnpm add -D oxlint oxlint-tsgolint oxfmt typescript "github:PerfectPan/lint-config#v0.4.0"
+pnpm add -D oxlint oxlint-tsgolint oxfmt typescript "github:PerfectPan/lint-config#v0.5.0"
 ```
 
 `oxlint-tsgolint` is required because the base config enables `typeAware` and `typeCheck`.
@@ -336,13 +344,13 @@ pnpm test
 
 `pnpm test` runs `scripts/self-test.sh`, which lints, formats and type-checks the fixture project in
 `test/consumer`. Each negative case must fail with a specific diagnostic (an unused variable, a `const` read above
-its declaration, a type error from `noUncheckedIndexedAccess`, a warning under `denyWarnings`, an unused disable
-directive, a PascalCase file name, a route parameter followed by more name, a 1001-line source file, two components
-in one `.tsx` file), so a config that stops applying fails the test. The clean sources include framework route file
-names, a Solid-style component that React's correctness rules would report, a test file with two components, a
-function declared below its caller and a type referenced before its declaration, and the script generates a
-1001-line test file that must pass. It also checks that the react override lists every react rule of the installed
-oxlint.
+its declaration, an unnecessary condition on a non-nullish value, a type error from `noUncheckedIndexedAccess`, a
+warning under `denyWarnings`, an unused disable directive, a PascalCase file name, a route parameter followed by
+more name, a 1001-line source file, two components in one `.tsx` file), so a config that stops applying fails the
+test. The clean sources include framework route file names, a Solid-style component that React's correctness rules
+would report, a test file with two components, a function declared below its caller, a type referenced before its
+declaration and a `while (true)` loop, and the script generates a 1001-line test file that must pass. It also checks
+that the react override lists every react rule of the installed oxlint.
 
 ## License
 
