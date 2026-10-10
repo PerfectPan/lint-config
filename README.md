@@ -8,7 +8,7 @@ The package is not published to npm. Install it as a git dependency pinned to a 
 ```json
 {
   "devDependencies": {
-    "@perfectpan/lint-config": "github:PerfectPan/lint-config#v0.5.0"
+    "@perfectpan/lint-config": "github:PerfectPan/lint-config#v0.6.0"
   }
 }
 ```
@@ -60,13 +60,17 @@ optional peer dependencies; install the ones your setup uses. The oxlint config 
   never nullish or always falsy. `allowConstantLoopConditions: "always"` keeps `while (true)` as the intentional
   infinite-loop idiom; `while (false)` and other constant loop conditions still fail. `checkTypePredicates` keeps
   its default (`false`).
-- **`no-use-before-define` with `functions: false`:** a `const`, `let`, `var`, `class` or `enum` in any scope —
+- **`no-use-before-define`:** a `const`, `let`, `var`, `class`, `enum` or `function` declaration in any scope —
   including an arrow-function constant and a name in an `export { name }` list — must not be referenced above its
-  declaration, so a file reads top-down and the reader meets a name after learning what it holds. TypeScript already
-  rejects a direct top-level read in the temporal dead zone (TS2448–TS2450); this rule also catches references inside
-  function bodies, which only fail at runtime when the function runs before the declaration. Function declarations
-  are exempt because they hoist: an entry function at the top calling helpers below it is the intended reading order.
-  Type-only references stay allowed through the default `ignoreTypeReferences`.
+  declaration, so a file reads top-down and the reader meets a name's definition before its use. Function
+  declarations are checked too: they hoist, but a single reading order for every kind of name (helpers above their
+  callers, the entry at the bottom) was chosen over the "entry first, helpers below" order that hoisting allows.
+  TypeScript already rejects a direct top-level read in the temporal dead zone (TS2448–TS2450); this rule also
+  catches references inside function bodies, which only fail at runtime when the function runs before the
+  declaration. The cost of checking functions is that two functions that call each other cannot both be declared
+  first: keep one `// oxlint-disable-next-line no-use-before-define` with the reason on it, or restructure (for
+  example by passing one function to the other). Type-only references stay allowed through the default
+  `ignoreTypeReferences`.
 
 ### File rules
 
@@ -159,7 +163,7 @@ The snippets below are the ones exercised by the self-test in `test/consumer`.
 ### Standalone oxlint and oxfmt
 
 ```sh
-pnpm add -D oxlint oxlint-tsgolint oxfmt typescript "github:PerfectPan/lint-config#v0.5.0"
+pnpm add -D oxlint oxlint-tsgolint oxfmt typescript "github:PerfectPan/lint-config#v0.6.0"
 ```
 
 `oxlint-tsgolint` is required because the base config enables `typeAware` and `typeCheck`.
@@ -344,13 +348,13 @@ pnpm test
 
 `pnpm test` runs `scripts/self-test.sh`, which lints, formats and type-checks the fixture project in
 `test/consumer`. Each negative case must fail with a specific diagnostic (an unused variable, a `const` read above
-its declaration, an unnecessary condition on a non-nullish value, a type error from `noUncheckedIndexedAccess`, a
-warning under `denyWarnings`, an unused disable directive, a PascalCase file name, a route parameter followed by
-more name, a 1001-line source file, two components in one `.tsx` file), so a config that stops applying fails the
-test. The clean sources include framework route file names, a Solid-style component that React's correctness rules
-would report, a test file with two components, a function declared below its caller, a type referenced before its
-declaration and a `while (true)` loop, and the script generates a 1001-line test file that must pass. It also checks
-that the react override lists every react rule of the installed oxlint.
+its declaration, a function called above its declaration, an unnecessary condition on a non-nullish value, a type
+error from `noUncheckedIndexedAccess`, a warning under `denyWarnings`, an unused disable directive, a PascalCase
+file name, a route parameter followed by more name, a 1001-line source file, two components in one `.tsx` file), so
+a config that stops applying fails the test. The clean sources include framework route file names, a Solid-style
+component that React's correctness rules would report, a test file with two components, a helper declared above its
+caller, a type referenced before its declaration and a `while (true)` loop, and the script generates a 1001-line
+test file that must pass. It also checks that the react override lists every react rule of the installed oxlint.
 
 ## License
 

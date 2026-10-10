@@ -16,7 +16,7 @@
     "no-unsafe-optional-chaining": "error",
     "no-unnecessary-condition": ["error", { "allowConstantLoopConditions": "always" }],
     "no-unused-vars": "error",
-    "no-use-before-define": ["error", { "functions": false }],
+    "no-use-before-define": ["error", { "functions": true }],
     "unicorn/filename-case": [
       "error",
       {

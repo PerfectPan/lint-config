@@ -41,6 +41,7 @@ check_lint() {
   expect_pass "$label: clean source" "$@" src
   expect_fail "$label: unused variable" "no-unused-vars" "$@" invalid/unused-var.ts
   expect_fail "$label: const used before declaration" "no-use-before-define" "$@" invalid/use-before-define.ts
+  expect_fail "$label: function called above its declaration" "no-use-before-define" "$@" invalid/use-before-define-function.ts
   expect_fail "$label: unneeded optional chain and nullish fallback" "no-unnecessary-condition" "$@" invalid/unnecessary-condition.ts
   expect_fail "$label: unbraced if body" "eslint(curly)" "$@" invalid/unbraced-if.ts
   expect_fail "$label: type check (noUncheckedIndexedAccess)" "TS2532" "$@" invalid/unchecked-index.ts

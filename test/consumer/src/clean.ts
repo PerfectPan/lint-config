@@ -15,9 +15,12 @@ export function describe(items: readonly string[], options: Options = {}, fallba
   return `${options.label ?? defaults.label}: ${first}`;
 }
 
-// Declared after their first use on purpose: function declarations hoist, so the shared no-use-before-define
-// setting (functions: false) keeps a helper below its entry function allowed, and a type referenced before
-// its declaration stays allowed through the default ignoreTypeReferences.
+// The helper is declared above its caller, and a type referenced before its declaration stays allowed through
+// the default ignoreTypeReferences of no-use-before-define.
+function fallback(): string {
+  return describe([]);
+}
+
 export function runFallback(): string {
   return fallback();
 }
@@ -28,10 +31,6 @@ export function spinUntil(until: () => boolean): void {
       return;
     }
   }
-}
-
-function fallback(): string {
-  return describe([]);
 }
 
 export function makeNamed(label: string): Named {
