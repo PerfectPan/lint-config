@@ -18,6 +18,7 @@ export declare const lint: {
     "no-unnecessary-condition": ["error", { allowConstantLoopConditions: "always" }];
     "no-unused-vars": "error";
     "no-use-before-define": ["error", { functions: boolean }];
+    "promise/valid-params": "off";
     "unicorn/filename-case": ["error", { case: "kebabCase"; ignore: string[] }];
     "vitest/no-conditional-expect": "off";
   };

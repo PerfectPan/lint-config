@@ -8,7 +8,7 @@ The package is not published to npm. Install it as a git dependency pinned to a 
 ```json
 {
   "devDependencies": {
-    "@perfectpan/lint-config": "github:PerfectPan/lint-config#v0.6.0"
+    "@perfectpan/lint-config": "github:PerfectPan/lint-config#v0.6.1"
   }
 }
 ```
@@ -71,6 +71,12 @@ optional peer dependencies; install the ones your setup uses. The oxlint config 
   first: keep one `// oxlint-disable-next-line no-use-before-define` with the reason on it, or restructure (for
   example by passing one function to the other). Type-only references stay allowed through the default
   `ignoreTypeReferences`.
+
+- **`promise/valid-params` is off:** it counts the arguments of any method named `then`, `catch` or `finally` without
+  type information, so it reports APIs that only share the name, such as zod/mini's `z.catch(schema, fallback)`.
+  TypeScript already rejects a wrong argument count on a real Promise method (TS2554), and oxlint's rule page notes
+  the rule "is generally unnecessary if using TypeScript". Leaving it on forced an `oxlint-disable` comment at every
+  such call.
 
 ### File rules
 
@@ -163,7 +169,7 @@ The snippets below are the ones exercised by the self-test in `test/consumer`.
 ### Standalone oxlint and oxfmt
 
 ```sh
-pnpm add -D oxlint oxlint-tsgolint oxfmt typescript "github:PerfectPan/lint-config#v0.6.0"
+pnpm add -D oxlint oxlint-tsgolint oxfmt typescript "github:PerfectPan/lint-config#v0.6.1"
 ```
 
 `oxlint-tsgolint` is required because the base config enables `typeAware` and `typeCheck`.
