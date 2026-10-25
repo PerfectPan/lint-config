@@ -72,6 +72,15 @@ optional peer dependencies; install the ones your setup uses. The oxlint config 
   example by passing one function to the other). Type-only references stay allowed through the default
   `ignoreTypeReferences`.
 
+- **`no-unsafe-type-assertion` is an error:** an assertion that narrows `any` or `unknown`, or claims a subtype the
+  value's type does not prove, replaces a check the code should have made with a claim the compiler cannot check.
+  At a boundary it skips the schema the data should have been parsed with; on a union or a DOM lookup it hides the
+  narrowing that belongs in the code. Narrow with `instanceof` or a type guard, parse unknown data with a schema,
+  or type the producer so the consumer needs no assertion. Assertions that only widen a type (for example
+  `as unknown`) stay allowed. Unknown data is parsed at its boundary, not asserted through, so a cast of a known
+  type is the case this rule exists to catch: it looks like typing and works like the type checker being switched
+  off for one expression.
+
 - **`promise/valid-params` is off:** it counts the arguments of any method named `then`, `catch` or `finally` without
   type information, so it reports APIs that only share the name, such as zod/mini's `z.catch(schema, fallback)`.
   TypeScript already rejects a wrong argument count on a real Promise method (TS2554), and oxlint's rule page notes
