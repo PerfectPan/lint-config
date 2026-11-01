@@ -8,8 +8,8 @@ A change here changes every consumer's CI once they bump the tag.
 - Keep project-specific settings (ignore paths, import boundaries, extra categories) out of the shared files; they
   belong in the consuming repository.
 - `oxlint.json`, `oxfmt.json`, `tailwind/rules.json` and `shadcn/rules.json` are the only source of values.
-  `vite-plus.js`, `tailwind/index.js` and `shadcn/index.js` build the exports from them; the `.d.ts` beside each
-  describes the same data and must be updated with it.
+  `vite-plus.js` exports them and `defineLint`, which takes the opt-in overrides from `tailwind/index.js` and
+  `shadcn/index.js`; `vite-plus.d.ts` describes the same data and options and must be updated with them.
 - Record the reason for any new rule or flag in `README.md` under Decisions.
 - Do not commit local config, credentials, internal hostnames or machine-specific paths.
 

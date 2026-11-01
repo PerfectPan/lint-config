@@ -24,13 +24,11 @@ MoonBit repositories do not use this package; it only covers JavaScript and Type
 | `@perfectpan/lint-config/tsconfig/base.json`    | strict compiler options without module, output, `types` or `include` choices |
 | `@perfectpan/lint-config/tsconfig/node.json`    | `base.json` + `module`/`moduleResolution` `NodeNext`                         |
 | `@perfectpan/lint-config/tsconfig/bundler.json` | `base.json` + `ESNext`/`Bundler` resolution, JSON imports, `noEmit`          |
-| `@perfectpan/lint-config/vite-plus`             | ESM module exporting `{ lint, fmt }`, the same data as the two JSON files    |
-| `@perfectpan/lint-config/tailwind`              | Opt-in Tailwind CSS rules: `jsPlugins` and `tailwindRules(entryPoint)`       |
-| `@perfectpan/lint-config/shadcn`                | Opt-in shadcn/ui overrides: `shadcnOverrides({ ui, elements })`              |
+| `@perfectpan/lint-config/vite-plus`             | ESM module exporting `{ lint, fmt }` and `defineLint()` (see below)          |
 
 `vite-plus` reads `oxlint.json` and `oxfmt.json` at import time, so the JSON files are the only source of the values;
-`tailwind` and `shadcn` read their own `rules.json` the same way. The package has no runtime dependencies. `oxlint`, `oxlint-tsgolint`,
-`oxfmt`, `typescript`, `vite-plus` and `eslint-plugin-better-tailwindcss` are optional peer dependencies; install the
+The opt-in checks of `defineLint` read `tailwind/rules.json` and `shadcn/rules.json`. The package has no runtime
+dependencies. `oxlint`, `oxlint-tsgolint`, `oxfmt`, `typescript`, `vite-plus` and `eslint-plugin-better-tailwindcss` are optional peer dependencies; install the
 ones your setup uses. The oxlint config needs oxlint 1.79 or later (see
 [File rules](#file-rules)).
 
@@ -137,18 +135,26 @@ directories out, for example framework route files.
   requiring that a file exporting components exports nothing else. A React and Vite repository can enable it in its
   own `.jsx`/`.tsx` override (see [Exempting paths](#exempting-paths) for why that override lists the plugin).
 
+### defineLint and opt-in checks
+
+`defineLint(config)` returns the shared lint config merged with the repository's: `categories`, `options` and `rules`
+merge key by key, `plugins` are added, and `overrides` come in a fixed order: shared, then the opt-in checks, then the
+repository's own. Spreading `lint` by hand works too, but every nested key has to be spread and the opt-in overrides
+have to follow the shared ones; `defineLint` keeps that order in one place.
+
+The opt-in checks are off unless their option is given (`false` also turns them off), because only repositories with
+that kind of front end need them.
+
 ### Tailwind CSS
 
-The Tailwind rules are a separate entry, `@perfectpan/lint-config/tailwind`, because only repositories with a Tailwind
-front end need them and the plugin they load. A repository that does not import the entry gets none of them and does
-not install `eslint-plugin-better-tailwindcss`. The rules come from that ESLint plugin, loaded through oxlint's
-`jsPlugins`, since oxlint has no Tailwind rules of its own. They need Tailwind CSS v4 and plugin 4.10 or later.
+`tailwind: { stylesheets, literalValues }` adds rules from `eslint-plugin-better-tailwindcss`, loaded through oxlint's
+`jsPlugins`, since oxlint has no Tailwind rules of its own. They need Tailwind CSS v4 and plugin 4.10 or later; a
+repository that leaves `tailwind` off does not load or install the plugin.
 
-The plugin compiles a stylesheet to learn the theme, so `tailwindRules(entryPoint)` takes the path of the stylesheet
-that imports Tailwind and returns every rule configured with it. Pass an absolute path: the plugin looks a relative
-path up from the working directory and, when nothing matches, falls back to Tailwind's default theme, so the
-project's own tokens are reported as unknown classes. A repository with several stylesheets for different parts of
-the source writes one override per stylesheet.
+The plugin compiles a stylesheet to learn the theme, so each entry of `stylesheets` names a stylesheet that imports
+Tailwind (`entryPoint`) and the files checked against it. Pass an absolute path: the plugin looks a relative path up
+from the working directory and, when nothing matches, falls back to Tailwind's default theme, so the project's own
+tokens are reported as unknown classes.
 
 - **`no-unknown-classes`, `no-conflicting-classes`, `no-duplicate-classes`, `no-unnecessary-whitespace`,
   `enforce-canonical-classes`:** a class the theme does not define, two classes setting the same property, a repeated
@@ -159,16 +165,16 @@ the source writes one override per stylesheet.
 - **`no-restricted-classes` on literal values:** an arbitrary value containing a hex colour, a colour function
   (`rgb()`, `hsl()`, `oklch()` and the rest) or a `px`, `rem` or `em` length is reported. Such a value bypasses the
   theme, so the same colour or size drifts across files; add a token to the theme's `@theme` and use its utility.
-  Arbitrary values without a literal, such as `data-[state=on]:`, `max-w-[62ch]` or `bg-(--color-brand)`, pass. A
-  repository with many existing literal values can turn the rule off in its own override while it adds tokens.
+  Arbitrary values without a literal, such as `data-[state=on]:`, `max-w-[62ch]` or `bg-(--color-brand)`, pass. It
+  is on by default so that a new repository starts without literal values; a repository with many existing ones sets
+  `literalValues: false` while it adds tokens.
 - **Class order is not enforced:** `enforce-consistent-class-order` would rewrite most existing markup, and the
   formatter does not sort classes.
 
 ### shadcn/ui
 
-`@perfectpan/lint-config/shadcn` is a second opt-in entry, independent of `tailwind`: a repository imports it when it
-keeps its controls in shadcn/ui component files. It needs no extra dependency; the rules are oxlint's own.
-`shadcnOverrides({ ui, elements })` returns three overrides:
+`shadcn: { ui, elements }` is independent of `tailwind`: a repository turns it on when it keeps its controls in
+shadcn/ui component files, listed in `ui`. It needs no extra dependency; the rules are oxlint's own.
 
 - **`react/forbid-elements` outside `ui`:** the elements listed in `elements` (for example `["button"]`) may only be
   rendered by the shadcn/ui files, so focus styles, variants and accessibility fixes live in one component. The
@@ -176,12 +182,12 @@ keeps its controls in shadcn/ui component files. It needs no extra dependency; t
   test globs of the shared react override.
 - **`no-restricted-imports` outside `ui`:** Radix primitives (`@radix-ui/*` and the `radix-ui` package) are imported
   only by the shadcn/ui files that wrap them. `@radix-ui/react-slot` stays allowed everywhere, because `Slot` is a
-  composition helper for `asChild`, not a control. The override replaces the repository's own `no-restricted-imports`
-  options for the files it matches; a repository with its own import restrictions repeats them in a later override.
+  composition helper for `asChild`, not a control. An override's `no-restricted-imports` would replace the top-level
+  setting for the files it matches, so `defineLint` adds the Radix pattern to the repository's own top-level
+  `no-restricted-imports` options.
 - **`react/no-multi-comp` off in `ui`:** a shadcn/ui file holds a component and its parts.
 
-Put the overrides after `...lint.overrides`: the shared react override turns `react/forbid-elements` off, and the
-later override wins.
+The shared react override turns `react/forbid-elements` off; the shadcn override comes after it and wins.
 
 ### Format
 
@@ -269,7 +275,7 @@ export default defineConfig({ ...fmt, ignorePatterns: ["dist/**"] });
 ### vite-plus
 
 ```ts
-import { fmt, lint } from "@perfectpan/lint-config/vite-plus";
+import { defineLint, fmt } from "@perfectpan/lint-config/vite-plus";
 import { defineConfig } from "vite-plus";
 
 export default defineConfig({
@@ -277,70 +283,40 @@ export default defineConfig({
     ...fmt,
     ignorePatterns: ["dist/**", "*.md"]
   },
-  lint: {
-    ...lint,
+  lint: defineLint({
     ignorePatterns: ["dist/**"],
-    rules: {
-      ...lint.rules,
-      "no-console": "error"
-    },
+    rules: { "no-console": "error" },
     overrides: [
-      ...lint.overrides,
       {
         files: ["packages/core/src/**/*.ts"],
         rules: { "no-restricted-imports": ["error", { patterns: ["node:*"] }] }
       }
     ]
-  }
+  })
 });
 ```
 
-Spread the nested values (`rules`, `options`, `overrides`) as well when adding to them. A plain `rules: {}` replaces
-the shared rules instead of extending them, and a plain `overrides: []` drops the test-file exemption from
-`max-lines` and the `react/no-multi-comp` override. Put `...lint.overrides` first so that the repository's own
-overrides apply after the shared ones.
+Without `defineLint`, spread the nested values (`rules`, `options`, `overrides`) when adding to them: a plain
+`rules: {}` replaces the shared rules instead of extending them, and a plain `overrides: []` drops the test-file
+exemption from `max-lines` and the `react/no-multi-comp` override. Put `...lint.overrides` first so that the
+repository's own overrides apply after the shared ones.
 
-### Tailwind CSS
-
-```sh
-pnpm add -D eslint-plugin-better-tailwindcss
-```
+A front end with Tailwind CSS and shadcn/ui turns the opt-in checks on (after `pnpm add -D
+eslint-plugin-better-tailwindcss`):
 
 ```ts
 import { fileURLToPath } from "node:url";
 
-import { jsPlugins, tailwindRules } from "@perfectpan/lint-config/tailwind";
-import { fmt, lint } from "@perfectpan/lint-config/vite-plus";
-import { defineConfig } from "vite-plus";
+const appCss = fileURLToPath(new URL("./src/styles/app.css", import.meta.url));
 
-export default defineConfig({
-  fmt,
-  lint: {
-    ...lint,
-    jsPlugins: [...jsPlugins],
-    overrides: [
-      ...lint.overrides,
-      {
-        files: ["src/**/*.{ts,tsx}"],
-        rules: tailwindRules(fileURLToPath(new URL("./src/styles/app.css", import.meta.url)))
-      }
-    ]
-  }
+lint: defineLint({
+  tailwind: { stylesheets: [{ entryPoint: appCss, files: ["src/**/*.{ts,tsx}"] }] },
+  shadcn: { ui: ["src/components/ui/*.tsx"], elements: ["button"] }
 });
 ```
 
-The rules read classes in `class` and `className` attributes and in calls to `cn()`, `clsx()`, `cva()` and the other
-helpers the plugin recognizes by default. In `oxlint.config.ts` the same `jsPlugins` and override go into the config
-object.
-
-### shadcn/ui
-
-```ts
-import { shadcnOverrides } from "@perfectpan/lint-config/shadcn";
-
-// in the lint config, after the shared overrides
-overrides: [...lint.overrides, ...shadcnOverrides({ ui: ["src/components/ui/*.tsx"], elements: ["button"] })];
-```
+The Tailwind rules read classes in `class` and `className` attributes and in calls to `cn()`, `clsx()`, `cva()` and
+the other helpers the plugin recognizes by default.
 
 ### TypeScript
 

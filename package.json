@@ -23,14 +23,6 @@
       "types": "./vite-plus.d.ts",
       "default": "./vite-plus.js"
     },
-    "./tailwind": {
-      "types": "./tailwind/index.d.ts",
-      "default": "./tailwind/index.js"
-    },
-    "./shadcn": {
-      "types": "./shadcn/index.d.ts",
-      "default": "./shadcn/index.js"
-    },
     "./package.json": "./package.json"
   },
   "files": [

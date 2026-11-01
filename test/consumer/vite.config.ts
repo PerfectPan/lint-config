@@ -1,8 +1,6 @@
 import { fileURLToPath } from "node:url";
 
-import { shadcnOverrides } from "@perfectpan/lint-config/shadcn";
-import { jsPlugins, tailwindRules } from "@perfectpan/lint-config/tailwind";
-import { fmt, lint } from "@perfectpan/lint-config/vite-plus";
+import { defineLint, fmt } from "@perfectpan/lint-config/vite-plus";
 import { defineConfig } from "vite-plus";
 
 export default defineConfig({
@@ -10,20 +8,21 @@ export default defineConfig({
     ...fmt,
     ignorePatterns: ["invalid/**"]
   },
-  lint: {
-    ...lint,
-    jsPlugins: [...jsPlugins],
+  lint: defineLint({
+    tailwind: {
+      stylesheets: [
+        { entryPoint: fileURLToPath(new URL("tailwind/theme.css", import.meta.url)), files: ["tailwind/**/*.tsx"] }
+      ]
+    },
+    shadcn: { ui: ["shadcn/components/ui/*.tsx"], elements: ["button"] },
+    rules: {
+      "no-restricted-imports": ["error", { paths: [{ name: "node:fs", message: "Read files through the loader." }] }]
+    },
     overrides: [
-      ...lint.overrides,
       {
         files: ["invalid/warning.ts"],
         rules: { "no-console": "warn" }
-      },
-      {
-        files: ["tailwind/**/*.tsx"],
-        rules: tailwindRules(fileURLToPath(new URL("tailwind/theme.css", import.meta.url)))
-      },
-      ...shadcnOverrides({ ui: ["shadcn/components/ui/*.tsx"], elements: ["button"] })
+      }
     ]
-  }
+  })
 });
