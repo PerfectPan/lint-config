@@ -24,147 +24,46 @@ MoonBit repositories do not use this package; it only covers JavaScript and Type
 | `@perfectpan/lint-config/tsconfig/base.json`    | strict compiler options without module, output, `types` or `include` choices |
 | `@perfectpan/lint-config/tsconfig/node.json`    | `base.json` + `module`/`moduleResolution` `NodeNext`                         |
 | `@perfectpan/lint-config/tsconfig/bundler.json` | `base.json` + `ESNext`/`Bundler` resolution, JSON imports, `noEmit`          |
-| `@perfectpan/lint-config/vite-plus`             | ESM module exporting `{ lint, fmt }`, the same data as the two JSON files    |
+| `@perfectpan/lint-config/vite-plus`             | ESM module exporting `lint` and `fmt` (the two JSON files) and `defineLint`  |
 
-`vite-plus` reads `oxlint.json` and `oxfmt.json` at import time, so the JSON files are the only source of the values.
-The package has no runtime dependencies. `oxlint`, `oxlint-tsgolint`, `oxfmt`, `typescript` and `vite-plus` are
-optional peer dependencies; install the ones your setup uses. The oxlint config needs oxlint 1.79 or later (see
-[File rules](#file-rules)).
-
-## Decisions
-
-### Lint
-
-- **Categories:** `correctness` is an error. Other categories stay off by default; a repository opts in per category
-  (for example `"suspicious": "warn"`).
-- **Plugins:** `import`, `node`, `oxc`, `promise`, `typescript`, `unicorn`, `vitest`. Their `correctness` rules run
-  by default; rules in other categories run only when a repository enables them. `react` is enabled only in an
-  override for `.jsx` and `.tsx` files, for the single rule described under [File rules](#file-rules).
-- **`denyWarnings: true`:** a warning fails the run. Rules are either worth fixing (error) or not worth reporting
-  (off); a warning that never fails CI accumulates until nobody reads the output.
-- **`reportUnusedDisableDirectives: "error"`:** a stale `oxlint-disable` comment is an error, so suppressions are
-  removed once the code no longer needs them.
-- **`typeAware` and `typeCheck`:** type-aware rules and TypeScript diagnostics run inside the lint pass through
-  `oxlint-tsgolint`, using the repository's `tsconfig.json`. A lint run therefore also reports type errors.
-- **Rules:** `no-unused-vars` and `no-unsafe-optional-chaining` are errors. `vitest/no-conditional-expect` is off,
-  because tests that branch on a result type and assert each branch are a common, readable pattern.
-- **`curly: ["error", "all"]`:** every `if`, `else`, `for`, `while` and `do` body is braced, including single
-  statements. An unbraced body invites the bug where a second statement is added at the same indentation but runs
-  unconditionally, and braced bodies keep diffs to the changed line. `oxlint --fix` inserts the braces on one line
-  (`if (x) {return 1;}`); running the formatter afterwards expands the block onto separate lines.
-- **`no-unnecessary-condition` with `allowConstantLoopConditions: "always"`:** a condition, optional chain or `??`
-  whose outcome the types already decide is an error (type-aware; runs through the `typeAware` pass above). An
-  optional chain or fallback on a value that is never nullish hides the real shape of the data and survives refactors
-  that make a field required; schemas at the boundary make fields required, and this rule removes the leftover
-  `?.` and `??`. It does not ban `?.` or `??` on genuinely optional values — only on values the types prove are
-  never nullish or always falsy. `allowConstantLoopConditions: "always"` keeps `while (true)` as the intentional
-  infinite-loop idiom; `while (false)` and other constant loop conditions still fail. `checkTypePredicates` keeps
-  its default (`false`).
-- **`no-use-before-define`:** a `const`, `let`, `var`, `class`, `enum` or `function` declaration in any scope —
-  including an arrow-function constant and a name in an `export { name }` list — must not be referenced above its
-  declaration, so a file reads top-down and the reader meets a name's definition before its use. Function
-  declarations are checked too: they hoist, but a single reading order for every kind of name (helpers above their
-  callers, the entry at the bottom) was chosen over the "entry first, helpers below" order that hoisting allows.
-  TypeScript already rejects a direct top-level read in the temporal dead zone (TS2448–TS2450); this rule also
-  catches references inside function bodies, which only fail at runtime when the function runs before the
-  declaration. The cost of checking functions is that two functions that call each other cannot both be declared
-  first: keep one `// oxlint-disable-next-line no-use-before-define` with the reason on it, or restructure (for
-  example by passing one function to the other). Type-only references stay allowed through the default
-  `ignoreTypeReferences`.
-
-- **`promise/valid-params` is off:** it counts the arguments of any method named `then`, `catch` or `finally` without
-  type information, so it reports APIs that only share the name, such as zod/mini's `z.catch(schema, fallback)`.
-  TypeScript already rejects a wrong argument count on a real Promise method (TS2554), and oxlint's rule page notes
-  the rule "is generally unnecessary if using TypeScript". Leaving it on forced an `oxlint-disable` comment at every
-  such call.
-
-### File rules
-
-Three rules constrain files rather than code: kebab-case names, at most 1000 lines, and one component per component
-file. They keep files easy to find and short. [Exempting paths](#exempting-paths) shows how a repository opts
-directories out, for example framework route files.
-
-- **`unicorn/filename-case` with `kebabCase`:** one naming scheme for every source file, and no case-only renames,
-  which Git misses on case-insensitive file systems. The rule checks only the part of the base name before the first
-  dot, with leading and trailing `_` removed; dotfiles and files named `index` are skipped. Directory names and files
-  that oxlint does not lint (Markdown, JSON, CSS) are not checked.
-
-  A route parameter in a file name is the parameter name the code reads, usually camelCase, and the framework
-  decides its syntax. The shared options therefore ignore a base name whose first dot-segment is exactly one
-  parameter. The `ignore` regular expressions match the base name:
-
-  - `^\[\[?(?:\.\.\.)?\w+\]\]?\.`: Next.js dynamic segments `[roomId].tsx`, `[...slugParts].tsx` and
-    `[[...slugParts]].tsx`.
-  - `^(?:\$\w*|\(\$\w+\)|\{-\$\w+\})\.`: TanStack Router, Remix and React Router parameters `$postId.tsx`,
-    `$postId.edit.tsx`, `$postId_.edit.tsx` and the splat `$.tsx`, plus the optional forms `($langCode).tsx` (Remix,
-    React Router) and `{-$localeCode}.tsx` (TanStack Router).
-
-  A parameter followed by more name in the same segment is still checked, so `[id]Helper.tsx` and
-  `[roomId]-panel.tsx` fail. Static segments before a parameter are checked as usual: `room.$roomId.tsx` passes and
-  `roomList.$roomId.tsx` fails.
-
-  Names that pass: `foo-bar.ts`, `foo.test.ts`, `vite.config.ts`, `index.d.ts`, `_app.tsx`, `__root.tsx`,
-  `room._index.tsx`, and the route parameters above. Names that fail: `FooBar.tsx`, `useFoo.ts`, `foo_bar.ts`,
-  `_myLayout.tsx`, `[id]Helper.tsx`.
-
-- **`max-lines: 1000`:** a file past 1000 lines usually holds more than one responsibility. Every line counts,
-  including blank lines and comments; a final newline does not start a new line, so for files that end with one the
-  count matches `wc -l`. Test files are exempt through an override matching `**/*.{test,spec}.*`, `**/__tests__/**`,
-  `**/test/**` and `**/tests/**`, because scenario and table-driven suites grow long without getting harder to
-  follow.
-
-- **`react/no-multi-comp` in `.jsx` and `.tsx` files:** a component file holds one component. The rule counts
-  capitalized functions and arrow functions that return JSX, `memo` and `forwardRef` wrappers and class components;
-  a component defined inside another component is not counted. Solid components are detected the same way. Test
-  files are excluded, so a test can define several helper components.
-
-  The rule exists only in oxlint's `react` plugin, and enabling a plugin, even in an override, also enables its rules
-  in every category the repository turns on. Several of them report valid Solid code: `react/jsx-key` asks for keys
-  that Solid does not use, and the React Compiler rules (`react/purity`, `react/refs`, `react/immutability` and
-  others) assume that a component body runs on every render. On agent-trace's Solid app they report 7 errors. The
-  override therefore turns off every other react rule, so it adds only `react/no-multi-comp` whatever categories the
-  repository enables. `pnpm test` fails when an oxlint upgrade adds a react rule that the override does not list.
-
-  Listing those rules by name requires **oxlint 1.79 or later**; older versions refuse to load the config with
-  `Rule '…' not found in plugin 'react'`. vite-plus runs the project's own `oxlint` when one is installed and its
-  bundled copy otherwise. vite-plus 0.2.x bundles an older oxlint, so install `oxlint` next to it or use vite-plus
-  0.3.0 or later.
-
-  `react/only-export-components` is a related rule with a different purpose: it keeps Vite Fast Refresh working by
-  requiring that a file exporting components exports nothing else. A React and Vite repository can enable it in its
-  own `.jsx`/`.tsx` override (see [Exempting paths](#exempting-paths) for why that override lists the plugin).
-
-### Format
-
-`oxfmt.json` is the default style for new repositories. An existing repository may override the quote, semicolon
-and trailing-comma options to avoid reformatting its whole history; for example agent-trace keeps `semi: false`,
-`singleQuote: true` and `trailingComma: "all"`.
-
-- `printWidth: 120`: fewer wrapped lines for TypeScript signatures and template strings.
-- `trailingComma: "none"`.
-- `sortPackageJson: false`: `package.json` keeps its hand-written field order.
-
-### TypeScript
-
-`tsconfig/base.json` enables `strict` plus the flags that catch real bugs under strict mode:
-`noUncheckedIndexedAccess`, `noFallthroughCasesInSwitch`, `noUnusedLocals`, `noUnusedParameters`,
-`allowUnreachableCode: false`, `allowUnusedLabels: false` and `forceConsistentCasingInFileNames`.
-
-`exactOptionalPropertyTypes` is off by default. It separates an absent property from one set to `undefined`, which
-matters for spreads over defaults and for serialized data, but most component props and parser results pass
-`undefined` through on purpose, and repositories adopting it tended to widen every optional type to `?: T | undefined`,
-which defeats the flag. A repository whose code already distinguishes the two cases turns it on in its own
-`tsconfig.json`. `verbatimModuleSyntax` makes type-only imports explicit, so the emitted imports
-match the source. `skipLibCheck` is on because type errors inside dependencies are not actionable. `target` is
-`ES2022`.
-
-Output settings (`outDir`, `rootDir`, `declaration`, `sourceMap`), `types`, `lib`, `include` and `exclude` depend on
-each repository and are left to it. `bundler.json` sets `noEmit` and `allowImportingTsExtensions` because a bundler,
-not `tsc`, produces the output; a library that emits declarations overrides both.
+The package has no runtime dependencies. `oxlint`, `oxlint-tsgolint`, `oxfmt`, `typescript`, `vite-plus` and
+`eslint-plugin-better-tailwindcss` are optional peer dependencies; install the ones your setup uses. The oxlint config
+needs oxlint 1.79 or later (see [File rules](docs/decisions.md#file-rules)).
 
 ## Usage
 
-The snippets below are the ones exercised by the self-test in `test/consumer`.
+The self-test in `test/consumer` exercises each setup below.
+
+### vite-plus
+
+```ts
+import { defineLint, fmt } from "@perfectpan/lint-config/vite-plus";
+import { defineConfig } from "vite-plus";
+
+export default defineConfig({
+  fmt: {
+    ...fmt,
+    ignorePatterns: ["dist/**", "*.md"]
+  },
+  lint: defineLint({
+    ignorePatterns: ["dist/**"],
+    rules: { "no-console": "error" },
+    overrides: [
+      {
+        files: ["packages/core/src/**/*.ts"],
+        rules: { "no-restricted-imports": ["error", { patterns: ["node:*"] }] }
+      }
+    ]
+  })
+});
+```
+
+`defineLint` merges the repository's config into the shared one: `categories`, `options` and `rules` merge key by
+key, `plugins` are added, and `overrides` apply in a fixed order: shared, then the [opt-in checks](#opt-in-checks),
+then the repository's own, because a later override wins.
+
+Without `defineLint`, spread every nested value (`...lint.rules`, `...lint.overrides` first); a plain `rules: {}` or
+`overrides: []` replaces the shared ones.
 
 ### Standalone oxlint and oxfmt
 
@@ -217,40 +116,6 @@ import { defineConfig } from "oxfmt";
 export default defineConfig({ ...fmt, ignorePatterns: ["dist/**"] });
 ```
 
-### vite-plus
-
-```ts
-import { fmt, lint } from "@perfectpan/lint-config/vite-plus";
-import { defineConfig } from "vite-plus";
-
-export default defineConfig({
-  fmt: {
-    ...fmt,
-    ignorePatterns: ["dist/**", "*.md"]
-  },
-  lint: {
-    ...lint,
-    ignorePatterns: ["dist/**"],
-    rules: {
-      ...lint.rules,
-      "no-console": "error"
-    },
-    overrides: [
-      ...lint.overrides,
-      {
-        files: ["packages/core/src/**/*.ts"],
-        rules: { "no-restricted-imports": ["error", { patterns: ["node:*"] }] }
-      }
-    ]
-  }
-});
-```
-
-Spread the nested values (`rules`, `options`, `overrides`) as well when adding to them. A plain `rules: {}` replaces
-the shared rules instead of extending them, and a plain `overrides: []` drops the test-file exemption from
-`max-lines` and the `react/no-multi-comp` override. Put `...lint.overrides` first so that the repository's own
-overrides apply after the shared ones.
-
 ### TypeScript
 
 ```json
@@ -267,78 +132,38 @@ overrides apply after the shared ones.
 Use `tsconfig/bundler.json` for code built by Vite, tsdown or another bundler, and `tsconfig/base.json` when the
 repository sets `module` itself. TypeScript resolves the package specifier through the `exports` map.
 
-## Overrides
+## Opt-in checks
 
-Anything project-specific belongs in the consuming repository: ignore paths, `no-restricted-imports` boundaries
-between packages, extra categories, environment globals and output settings. Keys set locally win over the shared
-values:
+`defineLint` takes two checks for front ends. Each is off unless its option is given (`false` also turns it off).
 
-- oxlint JSON and `oxlint.config.ts`: `extends` is applied first, then the local file's `rules`, `overrides` and
-  other keys. Shared overrides apply before local overrides.
-- vite-plus and `oxfmt.config.ts`: normal object spread; later keys win.
-- tsconfig: local `compilerOptions` override the extended ones key by key.
-
-An override always wins over top-level `rules` for the files it matches. A top-level setting for a `react/*` rule
-therefore has no effect on `.jsx` and `.tsx` files, where the shared override turns every react rule except
-`react/no-multi-comp` off; set react rules in a local override as shown below.
-
-Change a shared default here only when every consuming repository should follow it.
-
-### Exempting paths
-
-Frameworks decide some file names and exports, and generated or vendored code follows its generator. Exempt such
-paths with a local override instead of renaming or splitting them. The snippets use `.oxlintrc.json`; the same
-objects go into `overrides` in `oxlint.config.ts` or vite-plus.
-
-File names: route files named after the conventions of Next.js, TanStack Router, Remix and React Router already
-pass (see [File rules](#file-rules)). For other names a framework or generator decides, turn the rule off for the
-directory:
-
-```json
-{ "files": ["src/generated/**"], "rules": { "unicorn/filename-case": "off" } }
-```
-
-or add base-name regular expressions to `ignore`. Rule options replace the shared ones instead of merging with
-them, so repeat `case` and the shared `ignore` entries. In `oxlint.config.ts` or vite-plus, spread them from the
-shared config:
+- `tailwind: { stylesheets, literalValues }` checks Tailwind CSS v4 classes against each stylesheet's theme: unknown,
+  conflicting, duplicate, non-canonical and concatenated classes, and literal colours or lengths in arbitrary values
+  (`literalValues: false` turns that last rule off). Needs `eslint-plugin-better-tailwindcss` 4.10 or later.
+- `shadcn: { ui, elements }` keeps the listed `elements` and Radix primitives inside the shadcn/ui files in `ui`, and
+  lets those files hold several components. Needs no extra dependency.
 
 ```ts
-const [, filenameCase] = lint.rules["unicorn/filename-case"];
+import { fileURLToPath } from "node:url";
 
-// in the lint config
-rules: {
-  ...lint.rules,
-  "unicorn/filename-case": ["error", { ...filenameCase, ignore: [...filenameCase.ignore, "^\\d{4}_"] }]
-}
+const appCss = fileURLToPath(new URL("./src/styles/app.css", import.meta.url));
+
+lint: defineLint({
+  tailwind: { stylesheets: [{ entryPoint: appCss, files: ["src/**/*.{ts,tsx}"] }] },
+  shadcn: { ui: ["src/components/ui/*.tsx"], elements: ["button"] }
+});
 ```
 
-Components: React Router and Remix route modules export `ErrorBoundary`, `Layout` or `HydrateFallback` next to the
-default component, and shadcn/ui files export a family of components. Turn `react/no-multi-comp` off for them with
-an override that also lists the react plugin:
+Each `stylesheets` entry takes `entryPoint`, `files` and optional `excludeFiles`. `entryPoint` is the absolute path of
+a stylesheet that imports Tailwind: the plugin looks a relative path up from the working directory and, when nothing
+matches, falls back to Tailwind's default theme and reports the project's own tokens as unknown. The rules read
+classes in `class` and `className` and in `cn()`, `clsx()`, `cva()` and the other helpers the plugin recognizes. The
+rules and their reasons are in [docs/decisions.md](docs/decisions.md#opt-in-checks).
 
-```json
-{
-  "files": ["app/routes/**/*.tsx", "app/root.tsx", "app/components/ui/**/*.tsx"],
-  "plugins": ["react"],
-  "rules": { "react/no-multi-comp": "off" }
-}
-```
+## Docs
 
-- Without `"plugins": ["react"]` oxlint ignores a `react/*` setting in an override without any message.
-- Keep `files` to `.jsx` and `.tsx` source files. The override enables the react plugin for every file it matches;
-  for files outside the shared override (`.ts` files, test files) that also enables the react rules of the
-  categories the repository turns on.
-
-A React repository that wants react rules enables them with the same override shape:
-
-```json
-{
-  "files": ["**/*.{jsx,tsx}"],
-  "excludeFiles": ["**/*.{test,spec}.*", "**/__tests__/**", "**/test/**", "**/tests/**"],
-  "plugins": ["react"],
-  "rules": { "react/jsx-key": "error", "react/only-export-components": "error" }
-}
-```
+- [docs/decisions.md](docs/decisions.md): why each shared rule, flag and opt-in check is set the way it is.
+- [docs/overrides.md](docs/overrides.md): how local settings combine with the shared ones, and how to exempt
+  framework or generated paths.
 
 ## Versioning
 
@@ -352,15 +177,9 @@ pnpm install
 pnpm test
 ```
 
-`pnpm test` runs `scripts/self-test.sh`, which lints, formats and type-checks the fixture project in
-`test/consumer`. Each negative case must fail with a specific diagnostic (an unused variable, a `const` read above
-its declaration, a function called above its declaration, an unnecessary condition on a non-nullish value, a type
-error from `noUncheckedIndexedAccess`, a warning under `denyWarnings`, an unused disable directive, a PascalCase
-file name, a route parameter followed by more name, a 1001-line source file, two components in one `.tsx` file), so
-a config that stops applying fails the test. The clean sources include framework route file names, a Solid-style
-component that React's correctness rules would report, a test file with two components, a helper declared above its
-caller, a type referenced before its declaration and a `while (true)` loop, and the script generates a 1001-line
-test file that must pass. It also checks that the react override lists every react rule of the installed oxlint.
+`pnpm test` runs `scripts/self-test.sh` against the fixture project in `test/consumer`. Each negative case must fail
+with a specific diagnostic and each clean source must pass, so a config that stops applying fails the test; the
+script lists the cases.
 
 ## License
 

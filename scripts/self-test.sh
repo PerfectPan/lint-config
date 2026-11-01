@@ -77,6 +77,26 @@ check_react_override() {
   '
 }
 
+# defineLint adds nothing for tailwind or shadcn unless they are given, and literalValues: false drops only the
+# literal-value rule.
+check_define_lint_switches() {
+  node --input-type=module -e '
+    import assert from "node:assert/strict";
+    import { defineLint, lint } from "@perfectpan/lint-config/vite-plus";
+
+    for (const config of [defineLint(), defineLint({ tailwind: false, shadcn: false })]) {
+      assert.deepEqual(config.jsPlugins, []);
+      assert.deepEqual(config.overrides, lint.overrides);
+      assert.deepEqual(config.rules, lint.rules);
+    }
+    const stylesheets = [{ entryPoint: "/theme.css", files: ["src/**"] }];
+    const on = defineLint({ tailwind: { stylesheets } }).overrides.at(-1).rules;
+    const off = defineLint({ tailwind: { stylesheets, literalValues: false } }).overrides.at(-1).rules;
+    assert.ok("better-tailwindcss/no-restricted-classes" in on);
+    assert.deepEqual(Object.keys(off), Object.keys(on).filter((name) => name !== "better-tailwindcss/no-restricted-classes"));
+  '
+}
+
 # Two identical 1001-line files, one named as a test. Generated so that the fixture stays short.
 mkdir -p tmp
 for i in $(seq 1 1001); do
@@ -89,6 +109,20 @@ check_lint "oxlint oxlint.config.ts extends" "$bin/oxlint" -c oxlint-package.con
 check_lint "vite-plus lint" "$bin/vp" lint
 expect_pass "react override turns off every react rule except no-multi-comp" check_react_override
 
+# defineLint's tailwind and shadcn checks run only through vite-plus, where test/consumer/vite.config.ts enables them.
+expect_pass "tailwind: theme tokens and allowed arbitrary values" "$bin/vp" lint tailwind/badge.tsx
+expect_fail "tailwind: unknown class" "better-tailwindcss(no-unknown-classes)" "$bin/vp" lint tailwind/invalid/unknown-class.tsx
+expect_fail "tailwind: concatenated class" "better-tailwindcss(no-concatenated-classes)" "$bin/vp" lint tailwind/invalid/concatenated-class.tsx
+for literal in length hex colour-function; do
+  expect_fail "tailwind: literal $literal in an arbitrary value" "better-tailwindcss(no-restricted-classes)" "$bin/vp" lint "tailwind/invalid/literal-$literal.tsx"
+done
+
+expect_pass "shadcn: ui files, Slot and a test rendering <button>" "$bin/vp" lint shadcn/components shadcn/toolbar.tsx shadcn/toolbar.test.tsx
+expect_fail "shadcn: <button> outside components/ui" "react(forbid-elements)" "$bin/vp" lint shadcn/invalid/raw-button.tsx
+expect_fail "shadcn: Radix primitive outside components/ui" "eslint(no-restricted-imports)" "$bin/vp" lint shadcn/invalid/radix-import.tsx
+expect_fail "shadcn: repository's own import restriction still applies" "node:fs" "$bin/vp" lint shadcn/invalid/local-restricted-import.tsx
+expect_pass "defineLint: tailwind and shadcn off by default, literalValues switch" check_define_lint_switches
+
 expect_pass "oxfmt shared json" "$bin/oxfmt" -c node_modules/@perfectpan/lint-config/oxfmt.json --check src
 expect_pass "oxfmt oxfmt.config.ts" "$bin/oxfmt" -c oxfmt-package.config.ts --check src
 expect_pass "vite-plus fmt" "$bin/vp" fmt --check src
@@ -99,7 +133,7 @@ for variant in base node bundler; do
   expect_fail "tsc tsconfig/$variant.json strict flags" "TS2532" "$bin/tsc" -p "tsc/$variant.strict.json"
 done
 
-expect_pass "tsc consumer config files (vite-plus.d.ts types)" "$bin/tsc" -p tsc/config-files.json
+expect_pass "tsc consumer config files (vite-plus types, defineLint)" "$bin/tsc" -p tsc/config-files.json
 
 if ((failures > 0)); then
   printf '\n%d check(s) failed\n' "$failures"
