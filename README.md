@@ -8,7 +8,7 @@ The package is not published to npm. Install it as a git dependency pinned to a 
 ```json
 {
   "devDependencies": {
-    "@perfectpan/lint-config": "github:PerfectPan/lint-config#v0.6.1"
+    "@perfectpan/lint-config": "github:PerfectPan/lint-config#v0.7.0"
   }
 }
 ```
@@ -68,7 +68,7 @@ Without `defineLint`, spread every nested value (`...lint.rules`, `...lint.overr
 ### Standalone oxlint and oxfmt
 
 ```sh
-pnpm add -D oxlint oxlint-tsgolint oxfmt typescript "github:PerfectPan/lint-config#v0.6.1"
+pnpm add -D oxlint oxlint-tsgolint oxfmt typescript "github:PerfectPan/lint-config#v0.7.0"
 ```
 
 `oxlint-tsgolint` is required because the base config enables `typeAware` and `typeCheck`.
