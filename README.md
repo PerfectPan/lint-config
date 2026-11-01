@@ -25,10 +25,12 @@ MoonBit repositories do not use this package; it only covers JavaScript and Type
 | `@perfectpan/lint-config/tsconfig/node.json`    | `base.json` + `module`/`moduleResolution` `NodeNext`                         |
 | `@perfectpan/lint-config/tsconfig/bundler.json` | `base.json` + `ESNext`/`Bundler` resolution, JSON imports, `noEmit`          |
 | `@perfectpan/lint-config/vite-plus`             | ESM module exporting `{ lint, fmt }`, the same data as the two JSON files    |
+| `@perfectpan/lint-config/tailwind`              | Opt-in Tailwind CSS rules: `jsPlugins` and `tailwindRules(entryPoint)`       |
 
-`vite-plus` reads `oxlint.json` and `oxfmt.json` at import time, so the JSON files are the only source of the values.
-The package has no runtime dependencies. `oxlint`, `oxlint-tsgolint`, `oxfmt`, `typescript` and `vite-plus` are
-optional peer dependencies; install the ones your setup uses. The oxlint config needs oxlint 1.79 or later (see
+`vite-plus` reads `oxlint.json` and `oxfmt.json` at import time, so the JSON files are the only source of the values;
+`tailwind` reads `tailwind.json` the same way. The package has no runtime dependencies. `oxlint`, `oxlint-tsgolint`,
+`oxfmt`, `typescript`, `vite-plus` and `eslint-plugin-better-tailwindcss` are optional peer dependencies; install the
+ones your setup uses. The oxlint config needs oxlint 1.79 or later (see
 [File rules](#file-rules)).
 
 ## Decisions
@@ -133,6 +135,36 @@ directories out, for example framework route files.
   `react/only-export-components` is a related rule with a different purpose: it keeps Vite Fast Refresh working by
   requiring that a file exporting components exports nothing else. A React and Vite repository can enable it in its
   own `.jsx`/`.tsx` override (see [Exempting paths](#exempting-paths) for why that override lists the plugin).
+
+### Tailwind CSS
+
+The Tailwind rules are a separate entry, `@perfectpan/lint-config/tailwind`, because only repositories with a Tailwind
+front end need them and the plugin they load. A repository that does not import the entry gets none of them and does
+not install `eslint-plugin-better-tailwindcss`. The rules come from that ESLint plugin, loaded through oxlint's
+`jsPlugins`, since oxlint has no Tailwind rules of its own. They need Tailwind CSS v4 and plugin 4.10 or later.
+
+The plugin compiles a stylesheet to learn the theme, so `tailwindRules(entryPoint)` takes the path of the stylesheet
+that imports Tailwind and returns every rule configured with it. Pass an absolute path: the plugin looks a relative
+path up from the working directory and, when nothing matches, falls back to Tailwind's default theme, so the
+project's own tokens are reported as unknown classes. A repository with several stylesheets for different parts of
+the source writes one override per stylesheet.
+
+- **`no-unknown-classes`, `no-conflicting-classes`, `no-duplicate-classes`, `no-unnecessary-whitespace`,
+  `enforce-canonical-classes`:** a class the theme does not define, two classes setting the same property, a repeated
+  class, stray whitespace, and a longer spelling of a class that has a canonical form (`bg-[#fff]` for `bg-white`).
+  Each one either does nothing or does something other than what the markup says.
+- **`no-concatenated-classes`:** Tailwind finds classes by scanning source text, so a class built from fragments
+  (`"text-" + tone`) generates no CSS. Write complete class strings and choose between them in code.
+- **`no-restricted-classes` on literal values:** an arbitrary value containing a hex colour, a colour function
+  (`rgb()`, `hsl()`, `oklch()` and the rest) or a `px`, `rem` or `em` length is reported. Such a value bypasses the
+  theme, so the same colour or size drifts across files; add a token to the theme's `@theme` and use its utility.
+  Arbitrary values without a literal, such as `data-[state=on]:`, `max-w-[62ch]` or `bg-(--color-brand)`, pass. A
+  repository with many existing literal values can turn the rule off in its own override while it adds tokens.
+- **Class order is not enforced:** `enforce-consistent-class-order` would rewrite most existing markup, and the
+  formatter does not sort classes.
+
+shadcn/ui component files hold a component and its parts; exempt them from `react/no-multi-comp` as shown in
+[Exempting paths](#exempting-paths).
 
 ### Format
 
@@ -251,6 +283,39 @@ the shared rules instead of extending them, and a plain `overrides: []` drops th
 `max-lines` and the `react/no-multi-comp` override. Put `...lint.overrides` first so that the repository's own
 overrides apply after the shared ones.
 
+### Tailwind CSS
+
+```sh
+pnpm add -D eslint-plugin-better-tailwindcss
+```
+
+```ts
+import { fileURLToPath } from "node:url";
+
+import { jsPlugins, tailwindRules } from "@perfectpan/lint-config/tailwind";
+import { fmt, lint } from "@perfectpan/lint-config/vite-plus";
+import { defineConfig } from "vite-plus";
+
+export default defineConfig({
+  fmt,
+  lint: {
+    ...lint,
+    jsPlugins: [...jsPlugins],
+    overrides: [
+      ...lint.overrides,
+      {
+        files: ["src/**/*.{ts,tsx}"],
+        rules: tailwindRules(fileURLToPath(new URL("./src/styles/app.css", import.meta.url)))
+      }
+    ]
+  }
+});
+```
+
+The rules read classes in `class` and `className` attributes and in calls to `cn()`, `clsx()`, `cva()` and the other
+helpers the plugin recognizes by default. In `oxlint.config.ts` the same `jsPlugins` and override go into the config
+object.
+
 ### TypeScript
 
 ```json
@@ -356,10 +421,12 @@ pnpm test
 `test/consumer`. Each negative case must fail with a specific diagnostic (an unused variable, a `const` read above
 its declaration, a function called above its declaration, an unnecessary condition on a non-nullish value, a type
 error from `noUncheckedIndexedAccess`, a warning under `denyWarnings`, an unused disable directive, a PascalCase
-file name, a route parameter followed by more name, a 1001-line source file, two components in one `.tsx` file), so
-a config that stops applying fails the test. The clean sources include framework route file names, a Solid-style
-component that React's correctness rules would report, a test file with two components, a helper declared above its
-caller, a type referenced before its declaration and a `while (true)` loop, and the script generates a 1001-line
+file name, a route parameter followed by more name, a 1001-line source file, two components in one `.tsx` file, an
+unknown or concatenated Tailwind class, literal values in Tailwind arbitrary values), so a config that stops applying
+fails the test. The clean sources include framework route file names, a Solid-style component that React's
+correctness rules would report, a test file with two components, a helper declared above its caller, a type
+referenced before its declaration, a `while (true)` loop and Tailwind classes that exist only in the fixture's theme,
+and the script generates a 1001-line
 test file that must pass. It also checks that the react override lists every react rule of the installed oxlint.
 
 ## License

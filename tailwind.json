@@ -1,0 +1,22 @@
+{
+  "jsPlugins": [{ "name": "better-tailwindcss", "specifier": "eslint-plugin-better-tailwindcss" }],
+  "rules": {
+    "better-tailwindcss/no-unknown-classes": ["error", {}],
+    "better-tailwindcss/no-conflicting-classes": ["error", {}],
+    "better-tailwindcss/no-duplicate-classes": ["error", {}],
+    "better-tailwindcss/no-unnecessary-whitespace": ["error", {}],
+    "better-tailwindcss/enforce-canonical-classes": ["error", {}],
+    "better-tailwindcss/no-concatenated-classes": ["error", {}],
+    "better-tailwindcss/no-restricted-classes": [
+      "error",
+      {
+        "restrict": [
+          {
+            "pattern": "\\[[^\\]]*(?:#[0-9a-fA-F]{3,8}(?![\\w-])|(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch)\\(|\\d(?:px|rem|em)(?![a-zA-Z]))",
+            "message": "Literal colour or length in an arbitrary value: add a theme token and use its utility."
+          }
+        ]
+      }
+    ]
+  }
+}

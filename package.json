@@ -23,6 +23,10 @@
       "types": "./vite-plus.d.ts",
       "default": "./vite-plus.js"
     },
+    "./tailwind": {
+      "types": "./tailwind.d.ts",
+      "default": "./tailwind.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [
@@ -30,12 +34,16 @@
     "oxfmt.json",
     "tsconfig",
     "vite-plus.js",
-    "vite-plus.d.ts"
+    "vite-plus.d.ts",
+    "tailwind.json",
+    "tailwind.js",
+    "tailwind.d.ts"
   ],
   "scripts": {
     "test": "./scripts/self-test.sh"
   },
   "peerDependencies": {
+    "eslint-plugin-better-tailwindcss": ">=4.10.0",
     "oxfmt": ">=0.57.0",
     "oxlint": ">=1.79.0",
     "oxlint-tsgolint": ">=0.24.0",
@@ -43,6 +51,9 @@
     "vite-plus": ">=0.2.4"
   },
   "peerDependenciesMeta": {
+    "eslint-plugin-better-tailwindcss": {
+      "optional": true
+    },
     "oxfmt": {
       "optional": true
     },
