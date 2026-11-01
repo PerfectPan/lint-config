@@ -1,5 +1,5 @@
 {
   "extends": "@perfectpan/lint-config/tsconfig/node.json",
   "compilerOptions": { "jsx": "preserve" },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "invalid/**/*.ts", "invalid/**/*.tsx", "tailwind/**/*.tsx"]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "invalid/**/*.ts", "invalid/**/*.tsx", "tailwind/**/*.tsx", "shadcn/**/*.ts", "shadcn/**/*.tsx"]
 }

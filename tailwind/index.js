@@ -1,4 +1,4 @@
-import config from "./tailwind.json" with { type: "json" };
+import config from "./rules.json" with { type: "json" };
 
 const { jsPlugins, rules } = config;
 

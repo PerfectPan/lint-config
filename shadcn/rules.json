@@ -1,0 +1,7 @@
+{
+  "elementMessage": "Use the shadcn/ui component from components/ui instead of <{element}>.",
+  "restrictedImports": {
+    "group": ["@radix-ui/*", "!@radix-ui/react-slot", "radix-ui"],
+    "message": "Import the shadcn/ui component from components/ui; only those files wrap Radix primitives."
+  }
+}

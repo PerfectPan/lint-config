@@ -97,6 +97,11 @@ for literal in length hex colour-function; do
   expect_fail "tailwind: literal $literal in an arbitrary value" "better-tailwindcss(no-restricted-classes)" "$bin/vp" lint "tailwind/invalid/literal-$literal.tsx"
 done
 
+# shadcnOverrides runs through vite-plus too, with shadcn/components/ui as the component files.
+expect_pass "shadcn: ui files, Slot and a test rendering <button>" "$bin/vp" lint shadcn/components shadcn/toolbar.tsx shadcn/toolbar.test.tsx
+expect_fail "shadcn: <button> outside components/ui" "react(forbid-elements)" "$bin/vp" lint shadcn/invalid/raw-button.tsx
+expect_fail "shadcn: Radix primitive outside components/ui" "eslint(no-restricted-imports)" "$bin/vp" lint shadcn/invalid/radix-import.tsx
+
 expect_pass "oxfmt shared json" "$bin/oxfmt" -c node_modules/@perfectpan/lint-config/oxfmt.json --check src
 expect_pass "oxfmt oxfmt.config.ts" "$bin/oxfmt" -c oxfmt-package.config.ts --check src
 expect_pass "vite-plus fmt" "$bin/vp" fmt --check src
@@ -107,7 +112,7 @@ for variant in base node bundler; do
   expect_fail "tsc tsconfig/$variant.json strict flags" "TS2532" "$bin/tsc" -p "tsc/$variant.strict.json"
 done
 
-expect_pass "tsc consumer config files (vite-plus.d.ts and tailwind.d.ts types)" "$bin/tsc" -p tsc/config-files.json
+expect_pass "tsc consumer config files (vite-plus, tailwind and shadcn types)" "$bin/tsc" -p tsc/config-files.json
 
 if ((failures > 0)); then
   printf '\n%d check(s) failed\n' "$failures"

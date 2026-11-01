@@ -24,8 +24,12 @@
       "default": "./vite-plus.js"
     },
     "./tailwind": {
-      "types": "./tailwind.d.ts",
-      "default": "./tailwind.js"
+      "types": "./tailwind/index.d.ts",
+      "default": "./tailwind/index.js"
+    },
+    "./shadcn": {
+      "types": "./shadcn/index.d.ts",
+      "default": "./shadcn/index.js"
     },
     "./package.json": "./package.json"
   },
@@ -35,9 +39,8 @@
     "tsconfig",
     "vite-plus.js",
     "vite-plus.d.ts",
-    "tailwind.json",
-    "tailwind.js",
-    "tailwind.d.ts"
+    "tailwind",
+    "shadcn"
   ],
   "scripts": {
     "test": "./scripts/self-test.sh"

@@ -1,4 +1,4 @@
-// Structural literal types, as in vite-plus.d.ts. Keep in sync with tailwind.json.
+// Structural literal types, as in vite-plus.d.ts. Keep in sync with rules.json.
 
 type TailwindRule = "error" | ["error", { entryPoint: string; restrict?: Array<{ pattern: string; message: string }> }];
 

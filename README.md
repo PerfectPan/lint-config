@@ -26,9 +26,10 @@ MoonBit repositories do not use this package; it only covers JavaScript and Type
 | `@perfectpan/lint-config/tsconfig/bundler.json` | `base.json` + `ESNext`/`Bundler` resolution, JSON imports, `noEmit`          |
 | `@perfectpan/lint-config/vite-plus`             | ESM module exporting `{ lint, fmt }`, the same data as the two JSON files    |
 | `@perfectpan/lint-config/tailwind`              | Opt-in Tailwind CSS rules: `jsPlugins` and `tailwindRules(entryPoint)`       |
+| `@perfectpan/lint-config/shadcn`                | Opt-in shadcn/ui overrides: `shadcnOverrides({ ui, elements })`              |
 
 `vite-plus` reads `oxlint.json` and `oxfmt.json` at import time, so the JSON files are the only source of the values;
-`tailwind` reads `tailwind.json` the same way. The package has no runtime dependencies. `oxlint`, `oxlint-tsgolint`,
+`tailwind` and `shadcn` read their own `rules.json` the same way. The package has no runtime dependencies. `oxlint`, `oxlint-tsgolint`,
 `oxfmt`, `typescript`, `vite-plus` and `eslint-plugin-better-tailwindcss` are optional peer dependencies; install the
 ones your setup uses. The oxlint config needs oxlint 1.79 or later (see
 [File rules](#file-rules)).
@@ -163,8 +164,24 @@ the source writes one override per stylesheet.
 - **Class order is not enforced:** `enforce-consistent-class-order` would rewrite most existing markup, and the
   formatter does not sort classes.
 
-shadcn/ui component files hold a component and its parts; exempt them from `react/no-multi-comp` as shown in
-[Exempting paths](#exempting-paths).
+### shadcn/ui
+
+`@perfectpan/lint-config/shadcn` is a second opt-in entry, independent of `tailwind`: a repository imports it when it
+keeps its controls in shadcn/ui component files. It needs no extra dependency; the rules are oxlint's own.
+`shadcnOverrides({ ui, elements })` returns three overrides:
+
+- **`react/forbid-elements` outside `ui`:** the elements listed in `elements` (for example `["button"]`) may only be
+  rendered by the shadcn/ui files, so focus styles, variants and accessibility fixes live in one component. The
+  repository lists only the elements whose shadcn/ui component it has installed. Test files are excluded, using the
+  test globs of the shared react override.
+- **`no-restricted-imports` outside `ui`:** Radix primitives (`@radix-ui/*` and the `radix-ui` package) are imported
+  only by the shadcn/ui files that wrap them. `@radix-ui/react-slot` stays allowed everywhere, because `Slot` is a
+  composition helper for `asChild`, not a control. The override replaces the repository's own `no-restricted-imports`
+  options for the files it matches; a repository with its own import restrictions repeats them in a later override.
+- **`react/no-multi-comp` off in `ui`:** a shadcn/ui file holds a component and its parts.
+
+Put the overrides after `...lint.overrides`: the shared react override turns `react/forbid-elements` off, and the
+later override wins.
 
 ### Format
 
@@ -316,6 +333,15 @@ The rules read classes in `class` and `className` attributes and in calls to `cn
 helpers the plugin recognizes by default. In `oxlint.config.ts` the same `jsPlugins` and override go into the config
 object.
 
+### shadcn/ui
+
+```ts
+import { shadcnOverrides } from "@perfectpan/lint-config/shadcn";
+
+// in the lint config, after the shared overrides
+overrides: [...lint.overrides, ...shadcnOverrides({ ui: ["src/components/ui/*.tsx"], elements: ["button"] })];
+```
+
 ### TypeScript
 
 ```json
@@ -422,7 +448,8 @@ pnpm test
 its declaration, a function called above its declaration, an unnecessary condition on a non-nullish value, a type
 error from `noUncheckedIndexedAccess`, a warning under `denyWarnings`, an unused disable directive, a PascalCase
 file name, a route parameter followed by more name, a 1001-line source file, two components in one `.tsx` file, an
-unknown or concatenated Tailwind class, literal values in Tailwind arbitrary values), so a config that stops applying
+unknown or concatenated Tailwind class, literal values in Tailwind arbitrary values, a `<button>` or a Radix import
+outside the shadcn/ui files), so a config that stops applying
 fails the test. The clean sources include framework route file names, a Solid-style component that React's
 correctness rules would report, a test file with two components, a helper declared above its caller, a type
 referenced before its declaration, a `while (true)` loop and Tailwind classes that exist only in the fixture's theme,
