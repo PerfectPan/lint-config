@@ -24,13 +24,177 @@ MoonBit repositories do not use this package; it only covers JavaScript and Type
 | `@perfectpan/lint-config/tsconfig/base.json`    | strict compiler options without module, output, `types` or `include` choices |
 | `@perfectpan/lint-config/tsconfig/node.json`    | `base.json` + `module`/`moduleResolution` `NodeNext`                         |
 | `@perfectpan/lint-config/tsconfig/bundler.json` | `base.json` + `ESNext`/`Bundler` resolution, JSON imports, `noEmit`          |
-| `@perfectpan/lint-config/vite-plus`             | ESM module exporting `{ lint, fmt }` and `defineLint()` (see below)          |
+| `@perfectpan/lint-config/vite-plus`             | ESM module exporting `lint` and `fmt` (the two JSON files) and `defineLint`  |
 
-`vite-plus` reads `oxlint.json` and `oxfmt.json` at import time, so the JSON files are the only source of the values;
-The opt-in checks of `defineLint` read `tailwind/rules.json` and `shadcn/rules.json`. The package has no runtime
-dependencies. `oxlint`, `oxlint-tsgolint`, `oxfmt`, `typescript`, `vite-plus` and `eslint-plugin-better-tailwindcss` are optional peer dependencies; install the
-ones your setup uses. The oxlint config needs oxlint 1.79 or later (see
-[File rules](#file-rules)).
+The JSON files are the only source of the values: `vite-plus` reads `oxlint.json` and `oxfmt.json` at import time,
+and the [opt-in checks](#opt-in-checks) read `tailwind/rules.json` and `shadcn/rules.json`.
+
+The package has no runtime dependencies. `oxlint`, `oxlint-tsgolint`, `oxfmt`, `typescript`, `vite-plus` and
+`eslint-plugin-better-tailwindcss` are optional peer dependencies; install the ones your setup uses. The oxlint
+config needs oxlint 1.79 or later (see [File rules](#file-rules)).
+
+## Usage
+
+The self-test in `test/consumer` exercises each setup below.
+
+### vite-plus
+
+```ts
+import { defineLint, fmt } from "@perfectpan/lint-config/vite-plus";
+import { defineConfig } from "vite-plus";
+
+export default defineConfig({
+  fmt: {
+    ...fmt,
+    ignorePatterns: ["dist/**", "*.md"]
+  },
+  lint: defineLint({
+    ignorePatterns: ["dist/**"],
+    rules: { "no-console": "error" },
+    overrides: [
+      {
+        files: ["packages/core/src/**/*.ts"],
+        rules: { "no-restricted-imports": ["error", { patterns: ["node:*"] }] }
+      }
+    ]
+  })
+});
+```
+
+`defineLint` merges the repository's config into the shared one: `categories`, `options` and `rules` merge key by
+key, `plugins` are added, and `overrides` apply in a fixed order: shared, then the [opt-in checks](#opt-in-checks),
+then the repository's own, because a later override wins.
+
+Spreading `lint` by hand also works, but every nested value has to be spread: a plain `rules: {}` replaces the shared
+rules instead of extending them, and a plain `overrides: []` drops the test-file exemption from `max-lines` and the
+`react/no-multi-comp` override. Put `...lint.overrides` first so that the repository's own overrides apply after the
+shared ones.
+
+### Standalone oxlint and oxfmt
+
+```sh
+pnpm add -D oxlint oxlint-tsgolint oxfmt typescript "github:PerfectPan/lint-config#v0.6.1"
+```
+
+`oxlint-tsgolint` is required because the base config enables `typeAware` and `typeCheck`.
+
+`.oxlintrc.json`:
+
+```json
+{
+  "extends": ["./node_modules/@perfectpan/lint-config/oxlint.json"],
+  "ignorePatterns": ["dist/**"],
+  "overrides": [
+    {
+      "files": ["src/cli/**/*.ts"],
+      "rules": { "no-console": "off" }
+    }
+  ]
+}
+```
+
+JSON `extends` entries are file paths resolved relative to the config file. A package specifier such as
+`"@perfectpan/lint-config/oxlint.json"` fails with "No such file or directory". To extend by package name, use
+`oxlint.config.ts` instead:
+
+```ts
+import { lint } from "@perfectpan/lint-config/vite-plus";
+import { defineConfig } from "oxlint";
+
+export default defineConfig({
+  extends: [lint],
+  ignorePatterns: ["dist/**"]
+});
+```
+
+oxfmt has no `extends`. Point it at the shared file, or spread the options in `oxfmt.config.ts` when the repository
+needs its own ignore patterns:
+
+```sh
+oxfmt -c node_modules/@perfectpan/lint-config/oxfmt.json --check .
+```
+
+```ts
+import { fmt } from "@perfectpan/lint-config/vite-plus";
+import { defineConfig } from "oxfmt";
+
+export default defineConfig({ ...fmt, ignorePatterns: ["dist/**"] });
+```
+
+### TypeScript
+
+```json
+{
+  "extends": "@perfectpan/lint-config/tsconfig/node.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts"]
+}
+```
+
+Use `tsconfig/bundler.json` for code built by Vite, tsdown or another bundler, and `tsconfig/base.json` when the
+repository sets `module` itself. TypeScript resolves the package specifier through the `exports` map.
+
+## Opt-in checks
+
+`defineLint` takes two checks for front ends: `tailwind` and `shadcn`. Each is off unless its option is given
+(`false` also turns it off), because only repositories with that kind of front end need it.
+
+```ts
+import { fileURLToPath } from "node:url";
+
+const appCss = fileURLToPath(new URL("./src/styles/app.css", import.meta.url));
+
+lint: defineLint({
+  tailwind: { stylesheets: [{ entryPoint: appCss, files: ["src/**/*.{ts,tsx}"] }] },
+  shadcn: { ui: ["src/components/ui/*.tsx"], elements: ["button"] }
+});
+```
+
+### Tailwind CSS
+
+`tailwind: { stylesheets, literalValues }` needs Tailwind CSS v4 and `pnpm add -D eslint-plugin-better-tailwindcss`
+(4.10 or later). The rules come from that ESLint plugin, loaded through oxlint's `jsPlugins` only when `tailwind` is
+given, since oxlint has no Tailwind rules of its own. They read classes in `class` and `className` attributes and in
+calls to `cn()`, `clsx()`, `cva()` and the other helpers the plugin recognizes by default.
+
+The plugin compiles a stylesheet to learn the theme, so each entry of `stylesheets` names a stylesheet that imports
+Tailwind (`entryPoint`) and the `files` checked against it, with optional `excludeFiles`. Pass an absolute path: the
+plugin looks a relative path up from the working directory and, when nothing matches, falls back to Tailwind's
+default theme, so the project's own tokens are reported as unknown classes.
+
+- **`no-unknown-classes`, `no-conflicting-classes`, `no-duplicate-classes`, `no-unnecessary-whitespace`,
+  `enforce-canonical-classes`:** a class the theme does not define, two classes setting the same property, a repeated
+  class, stray whitespace, and a longer spelling of a class that has a canonical form (`bg-[#fff]` for `bg-white`).
+  Each one either does nothing or does something other than what the markup says.
+- **`no-concatenated-classes`:** Tailwind finds classes by scanning source text, so a class built from fragments
+  (`"text-" + tone`) generates no CSS. Write complete class strings and choose between them in code.
+- **`no-restricted-classes` on literal values:** an arbitrary value containing a hex colour, a colour function
+  (`rgb()`, `hsl()`, `oklch()` and the rest) or a `px`, `rem` or `em` length is reported. Such a value bypasses the
+  theme, so the same colour or size drifts across files; add a token to the theme's `@theme` and use its utility.
+  Arbitrary values without a literal, such as `data-[state=on]:`, `max-w-[62ch]` or `bg-(--color-brand)`, pass. It
+  is on by default so that a new repository starts without literal values; a repository with many existing ones sets
+  `literalValues: false` while it adds tokens.
+- **Class order is not enforced:** `enforce-consistent-class-order` would rewrite most existing markup, and the
+  formatter does not sort classes.
+
+### shadcn/ui
+
+`shadcn: { ui, elements }` is independent of `tailwind`. `ui` lists the shadcn/ui component files; `elements` lists
+the plain elements that only those files may render. It needs no extra dependency; the rules are oxlint's own.
+
+- **`react/forbid-elements` outside `ui`:** the elements listed in `elements` (for example `["button"]`) may only be
+  rendered by the shadcn/ui files, so focus styles, variants and accessibility fixes live in one component. The
+  repository lists only the elements whose shadcn/ui component it has installed. Test files are excluded, using the
+  test globs of the shared react override, which turns `react/forbid-elements` off; this override comes after it.
+- **`no-restricted-imports` outside `ui`:** Radix primitives (`@radix-ui/*` and the `radix-ui` package) are imported
+  only by the shadcn/ui files that wrap them. `@radix-ui/react-slot` stays allowed everywhere, because `Slot` is a
+  composition helper for `asChild`, not a control. An override's `no-restricted-imports` would replace the top-level
+  setting for the files it matches, so `defineLint` adds the Radix pattern to the repository's own top-level
+  `no-restricted-imports` options.
+- **`react/no-multi-comp` off in `ui`:** a shadcn/ui file holds a component and its parts.
 
 ## Decisions
 
@@ -72,7 +236,6 @@ ones your setup uses. The oxlint config needs oxlint 1.79 or later (see
   first: keep one `// oxlint-disable-next-line no-use-before-define` with the reason on it, or restructure (for
   example by passing one function to the other). Type-only references stay allowed through the default
   `ignoreTypeReferences`.
-
 - **`promise/valid-params` is off:** it counts the arguments of any method named `then`, `catch` or `finally` without
   type information, so it reports APIs that only share the name, such as zod/mini's `z.catch(schema, fallback)`.
   TypeScript already rejects a wrong argument count on a real Promise method (TS2554), and oxlint's rule page notes
@@ -135,60 +298,6 @@ directories out, for example framework route files.
   requiring that a file exporting components exports nothing else. A React and Vite repository can enable it in its
   own `.jsx`/`.tsx` override (see [Exempting paths](#exempting-paths) for why that override lists the plugin).
 
-### defineLint and opt-in checks
-
-`defineLint(config)` returns the shared lint config merged with the repository's: `categories`, `options` and `rules`
-merge key by key, `plugins` are added, and `overrides` come in a fixed order: shared, then the opt-in checks, then the
-repository's own. Spreading `lint` by hand works too, but every nested key has to be spread and the opt-in overrides
-have to follow the shared ones; `defineLint` keeps that order in one place.
-
-The opt-in checks are off unless their option is given (`false` also turns them off), because only repositories with
-that kind of front end need them.
-
-### Tailwind CSS
-
-`tailwind: { stylesheets, literalValues }` adds rules from `eslint-plugin-better-tailwindcss`, loaded through oxlint's
-`jsPlugins`, since oxlint has no Tailwind rules of its own. They need Tailwind CSS v4 and plugin 4.10 or later; a
-repository that leaves `tailwind` off does not load or install the plugin.
-
-The plugin compiles a stylesheet to learn the theme, so each entry of `stylesheets` names a stylesheet that imports
-Tailwind (`entryPoint`) and the files checked against it. Pass an absolute path: the plugin looks a relative path up
-from the working directory and, when nothing matches, falls back to Tailwind's default theme, so the project's own
-tokens are reported as unknown classes.
-
-- **`no-unknown-classes`, `no-conflicting-classes`, `no-duplicate-classes`, `no-unnecessary-whitespace`,
-  `enforce-canonical-classes`:** a class the theme does not define, two classes setting the same property, a repeated
-  class, stray whitespace, and a longer spelling of a class that has a canonical form (`bg-[#fff]` for `bg-white`).
-  Each one either does nothing or does something other than what the markup says.
-- **`no-concatenated-classes`:** Tailwind finds classes by scanning source text, so a class built from fragments
-  (`"text-" + tone`) generates no CSS. Write complete class strings and choose between them in code.
-- **`no-restricted-classes` on literal values:** an arbitrary value containing a hex colour, a colour function
-  (`rgb()`, `hsl()`, `oklch()` and the rest) or a `px`, `rem` or `em` length is reported. Such a value bypasses the
-  theme, so the same colour or size drifts across files; add a token to the theme's `@theme` and use its utility.
-  Arbitrary values without a literal, such as `data-[state=on]:`, `max-w-[62ch]` or `bg-(--color-brand)`, pass. It
-  is on by default so that a new repository starts without literal values; a repository with many existing ones sets
-  `literalValues: false` while it adds tokens.
-- **Class order is not enforced:** `enforce-consistent-class-order` would rewrite most existing markup, and the
-  formatter does not sort classes.
-
-### shadcn/ui
-
-`shadcn: { ui, elements }` is independent of `tailwind`: a repository turns it on when it keeps its controls in
-shadcn/ui component files, listed in `ui`. It needs no extra dependency; the rules are oxlint's own.
-
-- **`react/forbid-elements` outside `ui`:** the elements listed in `elements` (for example `["button"]`) may only be
-  rendered by the shadcn/ui files, so focus styles, variants and accessibility fixes live in one component. The
-  repository lists only the elements whose shadcn/ui component it has installed. Test files are excluded, using the
-  test globs of the shared react override.
-- **`no-restricted-imports` outside `ui`:** Radix primitives (`@radix-ui/*` and the `radix-ui` package) are imported
-  only by the shadcn/ui files that wrap them. `@radix-ui/react-slot` stays allowed everywhere, because `Slot` is a
-  composition helper for `asChild`, not a control. An override's `no-restricted-imports` would replace the top-level
-  setting for the files it matches, so `defineLint` adds the Radix pattern to the repository's own top-level
-  `no-restricted-imports` options.
-- **`react/no-multi-comp` off in `ui`:** a shadcn/ui file holds a component and its parts.
-
-The shared react override turns `react/forbid-elements` off; the shadcn override comes after it and wins.
-
 ### Format
 
 `oxfmt.json` is the default style for new repositories. An existing repository may override the quote, semicolon
@@ -217,123 +326,6 @@ Output settings (`outDir`, `rootDir`, `declaration`, `sourceMap`), `types`, `lib
 each repository and are left to it. `bundler.json` sets `noEmit` and `allowImportingTsExtensions` because a bundler,
 not `tsc`, produces the output; a library that emits declarations overrides both.
 
-## Usage
-
-The snippets below are the ones exercised by the self-test in `test/consumer`.
-
-### Standalone oxlint and oxfmt
-
-```sh
-pnpm add -D oxlint oxlint-tsgolint oxfmt typescript "github:PerfectPan/lint-config#v0.6.1"
-```
-
-`oxlint-tsgolint` is required because the base config enables `typeAware` and `typeCheck`.
-
-`.oxlintrc.json`:
-
-```json
-{
-  "extends": ["./node_modules/@perfectpan/lint-config/oxlint.json"],
-  "ignorePatterns": ["dist/**"],
-  "overrides": [
-    {
-      "files": ["src/cli/**/*.ts"],
-      "rules": { "no-console": "off" }
-    }
-  ]
-}
-```
-
-JSON `extends` entries are file paths resolved relative to the config file. A package specifier such as
-`"@perfectpan/lint-config/oxlint.json"` fails with "No such file or directory". To extend by package name, use
-`oxlint.config.ts` instead:
-
-```ts
-import { lint } from "@perfectpan/lint-config/vite-plus";
-import { defineConfig } from "oxlint";
-
-export default defineConfig({
-  extends: [lint],
-  ignorePatterns: ["dist/**"]
-});
-```
-
-oxfmt has no `extends`. Point it at the shared file, or spread the options in `oxfmt.config.ts` when the repository
-needs its own ignore patterns:
-
-```sh
-oxfmt -c node_modules/@perfectpan/lint-config/oxfmt.json --check .
-```
-
-```ts
-import { fmt } from "@perfectpan/lint-config/vite-plus";
-import { defineConfig } from "oxfmt";
-
-export default defineConfig({ ...fmt, ignorePatterns: ["dist/**"] });
-```
-
-### vite-plus
-
-```ts
-import { defineLint, fmt } from "@perfectpan/lint-config/vite-plus";
-import { defineConfig } from "vite-plus";
-
-export default defineConfig({
-  fmt: {
-    ...fmt,
-    ignorePatterns: ["dist/**", "*.md"]
-  },
-  lint: defineLint({
-    ignorePatterns: ["dist/**"],
-    rules: { "no-console": "error" },
-    overrides: [
-      {
-        files: ["packages/core/src/**/*.ts"],
-        rules: { "no-restricted-imports": ["error", { patterns: ["node:*"] }] }
-      }
-    ]
-  })
-});
-```
-
-Without `defineLint`, spread the nested values (`rules`, `options`, `overrides`) when adding to them: a plain
-`rules: {}` replaces the shared rules instead of extending them, and a plain `overrides: []` drops the test-file
-exemption from `max-lines` and the `react/no-multi-comp` override. Put `...lint.overrides` first so that the
-repository's own overrides apply after the shared ones.
-
-A front end with Tailwind CSS and shadcn/ui turns the opt-in checks on (after `pnpm add -D
-eslint-plugin-better-tailwindcss`):
-
-```ts
-import { fileURLToPath } from "node:url";
-
-const appCss = fileURLToPath(new URL("./src/styles/app.css", import.meta.url));
-
-lint: defineLint({
-  tailwind: { stylesheets: [{ entryPoint: appCss, files: ["src/**/*.{ts,tsx}"] }] },
-  shadcn: { ui: ["src/components/ui/*.tsx"], elements: ["button"] }
-});
-```
-
-The Tailwind rules read classes in `class` and `className` attributes and in calls to `cn()`, `clsx()`, `cva()` and
-the other helpers the plugin recognizes by default.
-
-### TypeScript
-
-```json
-{
-  "extends": "@perfectpan/lint-config/tsconfig/node.json",
-  "compilerOptions": {
-    "outDir": "dist",
-    "types": ["node"]
-  },
-  "include": ["src/**/*.ts"]
-}
-```
-
-Use `tsconfig/bundler.json` for code built by Vite, tsdown or another bundler, and `tsconfig/base.json` when the
-repository sets `module` itself. TypeScript resolves the package specifier through the `exports` map.
-
 ## Overrides
 
 Anything project-specific belongs in the consuming repository: ignore paths, `no-restricted-imports` boundaries
@@ -342,7 +334,9 @@ values:
 
 - oxlint JSON and `oxlint.config.ts`: `extends` is applied first, then the local file's `rules`, `overrides` and
   other keys. Shared overrides apply before local overrides.
-- vite-plus and `oxfmt.config.ts`: normal object spread; later keys win.
+- `defineLint`: `categories`, `options` and `rules` merge key by key, `plugins` are added, and local overrides apply
+  after the shared ones and the opt-in checks. Other keys replace the shared value.
+- `oxfmt.config.ts` and a hand-spread vite-plus config: normal object spread; later keys win.
 - tsconfig: local `compilerOptions` override the extended ones key by key.
 
 An override always wins over top-level `rules` for the files it matches. A top-level setting for a `react/*` rule
@@ -380,12 +374,12 @@ rules: {
 ```
 
 Components: React Router and Remix route modules export `ErrorBoundary`, `Layout` or `HydrateFallback` next to the
-default component, and shadcn/ui files export a family of components. Turn `react/no-multi-comp` off for them with
-an override that also lists the react plugin:
+default component. Turn `react/no-multi-comp` off for them with an override that also lists the react plugin (the
+[`shadcn`](#shadcnui) check already does this for shadcn/ui files):
 
 ```json
 {
-  "files": ["app/routes/**/*.tsx", "app/root.tsx", "app/components/ui/**/*.tsx"],
+  "files": ["app/routes/**/*.tsx", "app/root.tsx"],
   "plugins": ["react"],
   "rules": { "react/no-multi-comp": "off" }
 }
@@ -419,18 +413,24 @@ pnpm install
 pnpm test
 ```
 
-`pnpm test` runs `scripts/self-test.sh`, which lints, formats and type-checks the fixture project in
-`test/consumer`. Each negative case must fail with a specific diagnostic (an unused variable, a `const` read above
-its declaration, a function called above its declaration, an unnecessary condition on a non-nullish value, a type
-error from `noUncheckedIndexedAccess`, a warning under `denyWarnings`, an unused disable directive, a PascalCase
-file name, a route parameter followed by more name, a 1001-line source file, two components in one `.tsx` file, an
-unknown or concatenated Tailwind class, literal values in Tailwind arbitrary values, a `<button>` or a Radix import
-outside the shadcn/ui files), so a config that stops applying
-fails the test. The clean sources include framework route file names, a Solid-style component that React's
-correctness rules would report, a test file with two components, a helper declared above its caller, a type
-referenced before its declaration, a `while (true)` loop and Tailwind classes that exist only in the fixture's theme,
-and the script generates a 1001-line
-test file that must pass. It also checks that the react override lists every react rule of the installed oxlint.
+`pnpm test` runs `scripts/self-test.sh`, which lints, formats and type-checks the fixture project in `test/consumer`.
+Each negative case must fail with a specific diagnostic, so a config that stops applying fails the test:
+
+- an unused variable, a `const` read or a function called above its declaration, an unnecessary condition on a
+  non-nullish value, an unbraced `if` body;
+- a type error from `noUncheckedIndexedAccess`, a warning under `denyWarnings`, an unused disable directive;
+- a PascalCase file name, a route parameter followed by more name, a 1001-line source file, two components in one
+  `.tsx` file;
+- an unknown or concatenated Tailwind class, a literal colour or length in an arbitrary value;
+- a `<button>` or a Radix import outside the shadcn/ui files, and the repository's own import restriction next to the
+  Radix one.
+
+The clean sources include framework route file names, a Solid-style component that React's correctness rules would
+report, a test file with two components, a helper declared above its caller, a type referenced before its
+declaration, a `while (true)` loop, Tailwind classes that exist only in the fixture's theme, and shadcn/ui files that
+render `<button>` and import Radix. The script also generates a 1001-line test file that must pass, checks that the
+react override lists every react rule of the installed oxlint, and checks that `defineLint` adds nothing unless an
+opt-in check is given.
 
 ## License
 
