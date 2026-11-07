@@ -181,7 +181,7 @@ pnpm test
 with a specific diagnostic and each clean source must pass, so a config that stops applying fails the test; the
 script lists the cases.
 
-`pnpm test:floors` installs the fixture in `test/floors`, where every dependency is pinned to the lowest version in
+`pnpm test:floors` installs the fixture in `test/floors`, where every peer dependency is pinned to the lowest version in
 package.json's peerDependencies, and runs the same kind of smoke checks against it. This keeps the floors proven:
 CI lints, formats and type-checks sample files with exactly those versions on every run.
 

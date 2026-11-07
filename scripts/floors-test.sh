@@ -58,11 +58,57 @@ check_pinned_versions() {
   '
 }
 
+# The fixture holds every peer of @perfectpan/lint-config so the smoke runs at the advertised floors, and
+# check_pinned_versions holds it to its own package.json. This second guard compares those pins with the
+# floors the root package.json declares, so raising a floor without re-pinning the fixture fails here
+# instead of leaving the floor silently unproven. Only ">=" floors over stable versions are understood;
+# anything else fails loudly rather than skipping the guard. tailwindcss and the lint-config file link are
+# fixture-only and take no part in this comparison.
+check_floors_match() {
+  node --input-type=module -e '
+    import { readFileSync } from "node:fs";
+
+    const { peerDependencies } = JSON.parse(readFileSync("../../package.json", "utf8"));
+    const { devDependencies } = JSON.parse(readFileSync("package.json", "utf8"));
+
+    const stableTriple = (version) => {
+      if (/-|\+/.test(version)) throw new Error(`unsupported version "${version}"`);
+      return version.split(".").map(Number);
+    };
+    const floorTriple = (range) => {
+      if (!range.startsWith(">=")) throw new Error(`unsupported floor range "${range}"`);
+      return stableTriple(range.slice(2));
+    };
+    const atLeast = (pinned, floor) => {
+      for (let i = 0; i < 3; i += 1) {
+        if (pinned[i] !== floor[i]) return pinned[i] > floor[i];
+      }
+      return true;
+    };
+
+    const wrong = [];
+    for (const [name, range] of Object.entries(peerDependencies)) {
+      const floor = floorTriple(range);
+      const pin = devDependencies[name];
+      if (pin === undefined) {
+        wrong.push(`${name}: root floor ${range} but not pinned in test/floors/package.json`);
+      } else if (!atLeast(stableTriple(pin), floor)) {
+        wrong.push(`${name}: pinned ${pin}, below the root floor ${range}`);
+      }
+    }
+    if (wrong.length > 0) {
+      console.error(`fixture pins do not match the root peerDependencies floors:\n${wrong.join("\n")}`);
+      process.exit(1);
+    }
+  '
+}
+
 if ! node -e 'require("./node_modules/@perfectpan/lint-config/package.json")' 2>/dev/null; then
   printf 'FAIL  @perfectpan/lint-config is not installed; run `pnpm install` in test/floors first\n'
   exit 1
 fi
 expect_pass "fixture: every dependency installed at its pinned floor" check_pinned_versions
+expect_pass "fixture: pins match package.json's peerDependencies floors" check_floors_match
 
 # oxlint floor: the shared config loads in the floor oxlint and its rules report.
 expect_pass "oxlint: clean source" "$bin/oxlint" -c oxlintrc.json src
