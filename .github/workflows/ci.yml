@@ -23,6 +23,18 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
 
+  peer-floors:
+    name: peer floors smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm test:floors
+
   pr-title:
     name: conventional PR title
     if: github.event_name == 'pull_request'

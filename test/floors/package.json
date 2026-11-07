@@ -1,0 +1,15 @@
+{
+  "name": "lint-config-floors",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "@perfectpan/lint-config": "file:../..",
+    "eslint-plugin-better-tailwindcss": "4.10.0",
+    "oxfmt": "0.57.0",
+    "oxlint": "1.79.0",
+    "oxlint-tsgolint": "0.24.0",
+    "tailwindcss": "4.3.3",
+    "typescript": "6.0.2",
+    "vite-plus": "0.2.4"
+  }
+}

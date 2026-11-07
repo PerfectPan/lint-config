@@ -35,14 +35,15 @@
     "shadcn"
   ],
   "scripts": {
-    "test": "./scripts/self-test.sh"
+    "test": "./scripts/self-test.sh",
+    "test:floors": "pnpm -C test/floors install && ./scripts/floors-test.sh"
   },
   "peerDependencies": {
     "eslint-plugin-better-tailwindcss": ">=4.10.0",
     "oxfmt": ">=0.57.0",
     "oxlint": ">=1.79.0",
     "oxlint-tsgolint": ">=0.24.0",
-    "typescript": ">=6.0.0",
+    "typescript": ">=6.0.2",
     "vite-plus": ">=0.2.4"
   },
   "peerDependenciesMeta": {

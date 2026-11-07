@@ -131,6 +131,11 @@ Output settings (`outDir`, `rootDir`, `declaration`, `sourceMap`), `types`, `lib
 each repository and are left to it. `bundler.json` sets `noEmit` and `allowImportingTsExtensions` because a bundler,
 not `tsc`, produces the output; a library that emits declarations overrides both.
 
+The floors in package.json's peerDependencies are the lowest versions the shared configs are proven to work with:
+`test/floors` pins them and CI installs that fixture and lints sample files with it on every run, so a floor that
+stops working fails before a consumer hits it. The typescript floor is 6.0.2, not 6.0.0, because npm has no stable
+6.0.0 or 6.0.1 release — only `6.0.0-beta`, `6.0.0-dev.*` and `6.0.1-rc` prereleases.
+
 ## Opt-in checks
 
 ### Tailwind CSS
