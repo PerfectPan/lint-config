@@ -179,7 +179,7 @@ importers:
         specifier: '>=0.24.0'
         version: 7.0.2003
       typescript:
-        specifier: '>=6.0.0'
+        specifier: '>=6.0.2'
         version: 7.0.2
       vite-plus:
         specifier: '>=0.2.4'
