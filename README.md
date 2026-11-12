@@ -188,3 +188,5 @@ CI lints, formats and type-checks sample files with exactly those versions on ev
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+Development and CI use Node.js 26.13.1 from `.node-version` and the pnpm version in `packageManager`. The consumer fixture retains its Node 24 types and the peer-floor fixture retains its existing minimum versions.
