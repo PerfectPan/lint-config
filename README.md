@@ -189,4 +189,4 @@ CI lints, formats and type-checks sample files with exactly those versions on ev
 
 MIT. See [LICENSE](LICENSE).
 
-Development and CI use Node.js 26.13.1 from `.node-version` and the pnpm version in `packageManager`. The consumer fixture retains its Node 24 types and the peer-floor fixture retains its existing minimum versions.
+Development and CI use Node.js `^26.13.1` (`>=26.13.1 <27`) and the pnpm version in `packageManager`. `.node-version` selects major 26; `devEngines.runtime` rejects development installs below the security floor or on another major. CI resolves the latest matching release with `check-latest: true`. The consumer fixture retains its Node 24 types and the peer-floor fixture retains its existing minimum versions.
