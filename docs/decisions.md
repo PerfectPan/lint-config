@@ -112,6 +112,14 @@ and trailing-comma options to avoid reformatting its whole history; for example 
 - `printWidth: 120`: fewer wrapped lines for TypeScript signatures and template strings.
 - `trailingComma: "none"`.
 - `sortPackageJson: false`: `package.json` keeps its hand-written field order.
+- `ignorePatterns: ["CHANGELOG.*"]`: every consumer's release tool generates its changelog files, which nobody
+  may edit by hand: Changesets writes `CHANGELOG.md` (and `@changesets/changelog-github` indents the blank lines of
+  a multi-paragraph summary, so a format check fails the version pull request), and Rush writes `CHANGELOG.md` and
+  `CHANGELOG.json`. Ignore paths are otherwise project-specific and stay in the consuming repository; this one is
+  the same in every consumer, and with it a package that spreads `fmt` without its own patterns, including a newly
+  published one, needs no setting of its own. oxfmt resolves the pattern from the config file's directory and
+  matches it at any depth below a repository config that spreads `fmt`; it does not apply when `-c` points at the
+  shared file, and a repository with its own patterns spreads `...fmt.ignorePatterns`.
 
 ## TypeScript
 

@@ -6,7 +6,8 @@ A change here changes every consumer's CI once they bump the tag.
 ## Rules
 
 - Keep project-specific settings (ignore paths, import boundaries, extra categories) out of the shared files; they
-  belong in the consuming repository.
+  belong in the consuming repository. The one shared ignore is `CHANGELOG.*`, which every consumer's release tool
+  generates; `docs/decisions.md` records why.
 - `oxlint.json`, `oxfmt.json`, `tailwind/rules.json` and `shadcn/rules.json` are the only source of values.
   `vite-plus.js` exports them and `defineLint`, which takes the opt-in overrides from `tailwind/index.js` and
   `shadcn/index.js`; `vite-plus.d.ts` describes the same data and options and must be updated with them.

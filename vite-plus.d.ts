@@ -37,6 +37,7 @@ export declare const fmt: {
   printWidth: number;
   sortPackageJson: boolean;
   trailingComma: "none";
+  ignorePatterns: string[];
 };
 
 /** Tailwind CSS v4 checks; needs eslint-plugin-better-tailwindcss. One entry per stylesheet. */

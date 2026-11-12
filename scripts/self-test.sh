@@ -128,6 +128,14 @@ expect_pass "oxfmt oxfmt.config.ts" "$bin/oxfmt" -c oxfmt-package.config.ts --ch
 expect_pass "vite-plus fmt" "$bin/vp" fmt --check src
 expect_fail "oxfmt defaults differ from fixture" "Format issues found" "$bin/oxfmt" -c oxfmt-defaults.json --check src
 
+# Release tools write CHANGELOG.*, and @changesets/changelog-github indents the blank lines of a multi-paragraph
+# summary. The shared ignore skips it at any depth below a repository config that spreads fmt; ignore patterns
+# resolve from the config file's directory, so pointing -c at the shared file does not skip it.
+expect_fail "oxfmt defaults: changelog fixture is unformatted" "Format issues found" "$bin/oxfmt" -c oxfmt-defaults.json --check changelog
+expect_pass "vite-plus fmt: skips CHANGELOG.md at any depth" "$bin/vp" fmt --check changelog
+expect_pass "oxfmt oxfmt.config.ts: skips CHANGELOG.md at any depth" "$bin/oxfmt" -c oxfmt-package.config.ts --check changelog
+expect_fail "oxfmt shared json: ignore does not reach the repository" "Format issues found" "$bin/oxfmt" -c node_modules/@perfectpan/lint-config/oxfmt.json --check changelog
+
 for variant in base node bundler; do
   expect_pass "tsc tsconfig/$variant.json" "$bin/tsc" -p "tsc/$variant.json"
   expect_fail "tsc tsconfig/$variant.json strict flags" "TS2532" "$bin/tsc" -p "tsc/$variant.strict.json"
