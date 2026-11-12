@@ -20,7 +20,7 @@ MoonBit repositories do not use this package; it only covers JavaScript and Type
 | Export                                          | What it is                                                                   |
 | ----------------------------------------------- | ---------------------------------------------------------------------------- |
 | `@perfectpan/lint-config/oxlint.json`           | oxlint base config: plugins, categories, options, rules and overrides        |
-| `@perfectpan/lint-config/oxfmt.json`            | oxfmt options                                                                |
+| `@perfectpan/lint-config/oxfmt.json`            | oxfmt options and the ignore for generated `CHANGELOG.*` files               |
 | `@perfectpan/lint-config/tsconfig/base.json`    | strict compiler options without module, output, `types` or `include` choices |
 | `@perfectpan/lint-config/tsconfig/node.json`    | `base.json` + `module`/`moduleResolution` `NodeNext`                         |
 | `@perfectpan/lint-config/tsconfig/bundler.json` | `base.json` + `ESNext`/`Bundler` resolution, JSON imports, `noEmit`          |
@@ -43,7 +43,7 @@ import { defineConfig } from "vite-plus";
 export default defineConfig({
   fmt: {
     ...fmt,
-    ignorePatterns: ["dist/**", "*.md"]
+    ignorePatterns: [...fmt.ignorePatterns, "dist/**", "*.md"]
   },
   lint: defineLint({
     ignorePatterns: ["dist/**"],
@@ -63,7 +63,9 @@ key, `plugins` are added, and `overrides` apply in a fixed order: shared, then t
 then the repository's own, because a later override wins.
 
 Without `defineLint`, spread every nested value (`...lint.rules`, `...lint.overrides` first); a plain `rules: {}` or
-`overrides: []` replaces the shared ones.
+`overrides: []` replaces the shared ones. The same holds for `fmt.ignorePatterns`: the shared list skips the
+`CHANGELOG.*` files that release tools generate, so a repository adding its own patterns spreads
+`...fmt.ignorePatterns` first.
 
 ### Standalone oxlint and oxfmt
 
@@ -103,7 +105,9 @@ export default defineConfig({
 ```
 
 oxfmt has no `extends`. Point it at the shared file, or spread the options in `oxfmt.config.ts` when the repository
-needs its own ignore patterns:
+needs its own ignore patterns. oxfmt resolves `ignorePatterns` from the directory of the config file, so the shared
+`CHANGELOG.*` ignore applies only through a config in the repository; with `-c` pointing at the shared file,
+generated changelogs are checked:
 
 ```sh
 oxfmt -c node_modules/@perfectpan/lint-config/oxfmt.json --check .
@@ -113,7 +117,7 @@ oxfmt -c node_modules/@perfectpan/lint-config/oxfmt.json --check .
 import { fmt } from "@perfectpan/lint-config/vite-plus";
 import { defineConfig } from "oxfmt";
 
-export default defineConfig({ ...fmt, ignorePatterns: ["dist/**"] });
+export default defineConfig({ ...fmt, ignorePatterns: [...fmt.ignorePatterns, "dist/**"] });
 ```
 
 ### TypeScript

@@ -137,6 +137,9 @@ expect_pass "tailwind: theme tokens and allowed arbitrary values" "$bin/vp" lint
 expect_fail "tailwind: unknown class" "better-tailwindcss(no-unknown-classes)" "$bin/vp" lint tailwind/invalid/unknown-class.tsx
 
 expect_pass "vite-plus fmt: clean source" "$bin/vp" fmt --check src
+# oxfmt and vite-plus floors: the shared CHANGELOG.* ignore loads and matches at any depth below the config.
+expect_fail "oxfmt: changelog fixture is unformatted" "Format issues found" "$bin/oxfmt" -c node_modules/@perfectpan/lint-config/oxfmt.json --check changelog
+expect_pass "vite-plus fmt: skips CHANGELOG.md at any depth" "$bin/vp" fmt --check changelog
 
 if ((failures > 0)); then
   printf '\n%d check(s) failed\n' "$failures"

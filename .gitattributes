@@ -1,0 +1,2 @@
+# The changelog fixtures keep the whitespace-only lines @changesets/changelog-github writes; the self-test needs them.
+test/*/changelog/**/CHANGELOG.md -whitespace

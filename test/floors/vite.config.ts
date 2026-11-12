@@ -6,7 +6,7 @@ import { defineConfig } from "vite-plus";
 export default defineConfig({
   fmt: {
     ...fmt,
-    ignorePatterns: ["invalid/**", "tailwind/invalid/**"]
+    ignorePatterns: [...fmt.ignorePatterns, "invalid/**", "tailwind/invalid/**"]
   },
   lint: defineLint({
     tailwind: {
