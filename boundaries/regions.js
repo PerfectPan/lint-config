@@ -43,8 +43,11 @@ function bannedLocatedPatterns(manifest, allowed) {
     .filter((specifier) => !allowed.has(specifier))
     .sort()
     .map((specifier) => ({
-      regex: `^${escapeRegExp(specifier).replaceAll("\\*", ".*")}(/.+)?$`,
-      message: `[sdk-location] ${specifier} (or a subpath of it) is pinned to the paths declared in ${manifest.manifestSource}`
+      specifier,
+      pattern: {
+        regex: `^${escapeRegExp(specifier).replaceAll("\\*", ".*")}(/.+)?$`,
+        message: `[sdk-location] ${specifier} (or a subpath of it) is pinned to the paths declared in ${manifest.manifestSource}`
+      }
     }));
 }
 
@@ -137,7 +140,17 @@ export function overridesOf(manifest, scopes, entryGroups) {
     const probe = representative(region);
     const scope = scopeOf(scopes, probe);
     const grants = entryGrantsOf(manifest, scope);
-    const patterns = bannedLocatedPatterns(manifest, allowedSpecifiersOf(manifest, probe));
+    const located = bannedLocatedPatterns(manifest, allowedSpecifiersOf(manifest, probe));
+    const patterns = located.map(({ pattern }) => pattern);
+    // Computed-entry selectors already reject type queries over their whole root/subpath surface.
+    // Keep SDK restrictions on static imports while retaining the more specific type-query diagnostic.
+    const entryTypeQueries = new Set(
+      located
+        .filter(({ specifier }) =>
+          grants.some(({ grant }) => specifier === grant.specifier || specifier.startsWith(`${grant.specifier}/`))
+        )
+        .map(({ pattern }) => pattern)
+    );
     const grantPatterns = [];
     for (const { grant, tier } of grants) {
       const group = entryGroups[grant.specifier];
@@ -198,7 +211,12 @@ export function overridesOf(manifest, scopes, entryGroups) {
         ? []
         : structuralGuardSelectors),
       ...[...patterns, ...grantPatterns]
-        .filter((pattern) => pattern.importNames === undefined && pattern.allowImportNames === undefined)
+        .filter(
+          (pattern) =>
+            pattern.importNames === undefined &&
+            pattern.allowImportNames === undefined &&
+            !entryTypeQueries.has(pattern)
+        )
         .map((pattern) => ({
           selector: `TSImportType > Literal[value=/${pattern.regex.replaceAll("/", "\\/")}/]`,
           message: pattern.message

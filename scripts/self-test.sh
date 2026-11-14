@@ -169,6 +169,7 @@ expect_pass "boundaries: whitelist entry name in a model layer" "$bbin/vp" lint 
 expect_fail "boundaries: non-whitelist entry name in a model layer" "runtime-entry" "$bbin/vp" lint packages/api/src/billing/domain/cases/core-non-whitelist.ts
 expect_fail "boundaries: non-origin entry name in an application layer" "runtime-entry" "$bbin/vp" lint packages/api/src/billing/application/cases/entry-grant-infra-origin.ts
 expect_fail "boundaries: literal dynamic import of a pinned entry" "runtime-entry" "$bbin/vp" lint packages/api/src/billing/domain/cases/entry-dynamic-import.ts
+expect_pass "boundaries: a computed-entry type query keeps its specific diagnostic" node entry-query-check.mjs
 expect_fail "boundaries: namespace import of a pinned entry" "runtime-entry" "$bbin/vp" lint packages/api/src/billing/domain/cases/entry-namespace-import.ts
 expect_fail "boundaries: loose typeof-object walk outside lib" "structural-guard" "$bbin/vp" lint packages/api/src/billing/domain/cases/typeof-walk.ts
 expect_fail "boundaries: renamed isRecord predicate" "structural-guard" "$bbin/vp" lint packages/api/src/billing/domain/cases/is-record.ts
@@ -187,8 +188,8 @@ expect_fail "boundaries: no-export-star entry re-exports names" "entry-export" "
 expect_fail "boundaries: undeclared top-level source fails closed" "undeclared-source" "$bbin/vp" lint packages/api/src/rogue/value.ts
 expect_fail "boundaries: unresolvable import is refused" "unresolved" "$bbin/vp" lint packages/api/src/billing/domain/cases/unresolved.ts
 expect_fail "boundaries: a package with no importable surface refuses everything" "exposes no importable surface" "$bbin/vp" lint packages/api/src/billing/infra/cases/void-import.ts
-expect_fail "boundaries: an adjacent package name is not a pinned entry" "external-dependency" "$bbin/vp" lint packages/api/src/billing/infra/cases/adjacent-name.ts
-expect_pass "boundaries: an adjacent package name never trips the entry matcher" sh -c '! ./node_modules/.bin/vp lint --format json packages/api/src/billing/infra/cases/adjacent-name.ts 2>/dev/null | grep -q runtime-entry'
+expect_fail "boundaries: an adjacent package name is not a pinned entry" "external-dependency" "$bbin/vp" lint packages/api/src/billing/application/cases/adjacent-name.ts
+expect_pass "boundaries: an adjacent package name never trips the entry matcher" sh -c '! ./node_modules/.bin/vp lint --format json packages/api/src/billing/application/cases/adjacent-name.ts 2>/dev/null | grep -q runtime-entry'
 expect_fail "boundaries: relative import leaves its package" "relative-escape" "$bbin/vp" lint packages/core/src/cases/escape.ts
 expect_fail "boundaries: model layer runs no Schema decode" "model-decode" "$bbin/vp" lint packages/api/src/billing/application/cases/decode-call.ts
 expect_fail "boundaries: aliased Schema cannot hide a decode" "model-decode" "$bbin/vp" lint packages/api/src/billing/application/cases/decode-renamed.ts

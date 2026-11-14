@@ -73,6 +73,7 @@ export const manifest: BoundaryManifest = {
   pureProjections: ["packages/core/src/index.ts", "packages/core/src/pure-case.ts"],
   noExportStarEntries: ["packages/api/src/cli.ts", "packages/core/src/export-star-case.ts"],
   locatedSpecifiers: {
+    "@acme/core/values": ["packages/api/src/billing/domain/**", "packages/api/src/billing/infra/**"],
     "@acme/sdk": ["packages/api/src/billing/infra/**", "packages/api/src/bootstrap/**"]
   },
   locatedCalls: {
