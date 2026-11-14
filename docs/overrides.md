@@ -24,7 +24,8 @@ overrides apply in the fixed order: shared, then the opt-in checks, then the rep
 boundary ones — **the boundary overrides are the tail**, so no local override can weaken a generated rule for
 the files it matches, and the boundary ones own their rule ids (`boundaries/dependencies`,
 `shared-checks/restricted-syntax`, `shared-checks/restricted-imports`, `shared-checks/restricted-globals`)
-plus the `boundaries/*` and `import/*` settings keys. A local rule or override rule under an owned id, or a
+plus the exact settings keys emitted by the generator. Unrelated `import/*` settings remain available.
+A local rule or override rule under an owned id, or a
 local setting under an owned settings key, is refused with a named conflict instead of being merged or
 overwritten; every other local rule, setting and override is kept. The `missingBoundaryRules` drift check
 recomputes the generator output and reports a lint block that lost or reordered the generated parts.

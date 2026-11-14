@@ -22,7 +22,7 @@ MoonBit repositories do not use this package; it only covers JavaScript and Type
 | `@perfectpan/lint-config/oxlint.json`           | oxlint base config: plugins, categories, options, rules and overrides        |
 | `@perfectpan/lint-config/oxfmt.json`            | oxfmt options and the ignore for generated `CHANGELOG.*` files               |
 | `@perfectpan/lint-config/jscpd.json`            | jscpd gate profile: exact duplicates fail with the zero threshold            |
-| `@perfectpan/lint-config/jscpd-audit.json`      | jscpd audit profile: renamed and AST-similar candidates, never a gate        |
+| `@perfectpan/lint-config/jscpd-audit.json`      | jscpd audit profile: renamed and AST-similar candidates, no default threshold |
 | `@perfectpan/lint-config/tsconfig/base.json`    | strict compiler options without module, output, `types` or `include` choices |
 | `@perfectpan/lint-config/tsconfig/node.json`    | `base.json` + `module`/`moduleResolution` `NodeNext`                         |
 | `@perfectpan/lint-config/tsconfig/bundler.json` | `base.json` + `ESNext`/`Bundler` resolution, JSON imports, `noEmit`          |
@@ -74,6 +74,7 @@ Without `defineLint`, spread every nested value (`...lint.rules`, `...lint.overr
 `...fmt.ignorePatterns` first.
 
 ### Standalone oxlint and oxfmt
+
 ```sh
 pnpm add -D oxlint oxlint-tsgolint oxfmt typescript "github:PerfectPan/lint-config#v0.7.1"
 ```
@@ -152,7 +153,7 @@ place instead of splitting the list between the profile and the command.
 # The exact gate: an exact clone fails the run with the zero threshold.
 jscpd --config node_modules/@perfectpan/lint-config/jscpd.json packages --format 'typescript,javascript' --ignore '**/*.test.ts'
 
-# The audit profile: renamed-identifier and AST-similar candidates, reported, never blocking. AST
+# The audit profile reports renamed-identifier and AST-similar candidates without a default threshold. AST
 # similarity leaves test files out in this jscpd version, and a reported candidate still needs a
 # behaviour review before anyone calls it removable code.
 jscpd --config node_modules/@perfectpan/lint-config/jscpd-audit.json packages scripts --output reports/jscpd
@@ -160,6 +161,8 @@ jscpd --config node_modules/@perfectpan/lint-config/jscpd-audit.json packages sc
 
 An empty scan (no file survived the roots, formats and ignores) fails through `failOnEmpty`, so a broad ignore
 cannot silence the gate silently.
+After reviewing its findings, a consumer may set a CLI threshold for the audit profile. Empty-input and
+execution errors still fail even when duplicate findings are non-blocking.
 
 ### Unused code (knip)
 
@@ -212,8 +215,8 @@ export default defineConfig({
 ```
 
 `defineLint` puts the boundary overrides last, where no local override can weaken them, and refuses local rules
-or settings under the ids the generator owns (`boundaries/dependencies`, `shared-checks/*`, `boundaries/*` and
-`import/*` settings keys). Giving `boundaries` and `dataBoundaries` together is refused: the manifest owns the
+or settings under the exact keys the generator owns. Other settings, including unrelated `import/*` keys,
+remain available to the consumer. Giving `boundaries` and `dataBoundaries` together is refused: the manifest owns the
 structural guards and their traversal exceptions. Without `defineLint`, spread the values manually and keep
 `...boundary.overrides` as the tail of the override list.
 
