@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import type { OxlintConfig } from "vite-plus/lint";
 import type { KnipConfig } from "knip";
 
-import { defineBoundaryLint } from "@perfectpan/lint-config/boundaries";
+import { defineBoundaryLint, missingBoundaryRules } from "@perfectpan/lint-config/boundaries";
 import { knip } from "@perfectpan/lint-config/knip";
 import { defineLint } from "@perfectpan/lint-config/vite-plus";
 
@@ -15,6 +15,8 @@ const root = fileURLToPath(new URL("../", import.meta.url));
 const options = { root, manifest, entryExports };
 const direct: OxlintConfig = defineBoundaryLint(options);
 const composed: OxlintConfig = defineLint({ boundaries: defineBoundaryLint(options) });
+const missing = missingBoundaryRules(composed, options);
+const absent = missingBoundaryRules(null, options);
 const knipConfig = { ...knip, entry: ["src/index.ts"] } satisfies KnipConfig;
 
-export { composed, direct, knipConfig };
+export { absent, composed, direct, knipConfig, missing };

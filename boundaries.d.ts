@@ -158,9 +158,9 @@ export interface BoundaryOptions {
 
 /** A lint block, as the drift check reads it. */
 export interface BoundaryLintLike {
-  jsPlugins?: Array<{ name: string; specifier: string }>;
-  settings?: Record<string, unknown>;
-  overrides?: unknown[];
+  jsPlugins?: readonly unknown[] | null;
+  settings?: Record<string, unknown> | null;
+  overrides?: readonly unknown[] | null;
 }
 
 /**
@@ -175,4 +175,4 @@ export declare function defineBoundaryLint(options: BoundaryOptions): BoundaryLi
  * and boundary overrides that are not exactly the tail of the override list. Returns the offending
  * part names; an empty list means the consumer carries the generated rules in full.
  */
-export declare function missingBoundaryRules(lint: BoundaryLintLike | undefined, options: BoundaryOptions): string[];
+export declare function missingBoundaryRules(lint: BoundaryLintLike | null | undefined, options: BoundaryOptions): string[];
