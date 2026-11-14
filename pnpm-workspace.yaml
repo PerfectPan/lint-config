@@ -1,2 +1,4 @@
 packages:
   - test/consumer
+  - test/boundaries
+  - test/quality

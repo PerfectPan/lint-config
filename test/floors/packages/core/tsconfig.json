@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "paths": {
+      "@fixture/lib": ["../lib/src/index.ts"],
+      "@fixture/lib/*": ["../lib/src/*"]
+    }
+  },
+  "include": ["src/**/*.ts", "../lib/src/**/*.ts"]
+}

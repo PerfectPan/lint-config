@@ -15,8 +15,14 @@ export default defineConfig({
       ]
     },
     shadcn: { ui: ["shadcn/components/ui/*.tsx"], elements: ["button"] },
+    jsPlugins: [{ name: "local-checks", specifier: fileURLToPath(new URL("./local-plugin.mjs", import.meta.url)) }],
+    dataBoundaries: {
+      files: ["data-boundary/**"],
+      objectWalks: ["data-boundary/walker.ts"]
+    },
     rules: {
-      "no-restricted-imports": ["error", { paths: [{ name: "node:fs", message: "Read files through the loader." }] }]
+      "no-restricted-imports": ["error", { paths: [{ name: "node:fs", message: "Read files through the loader." }] }],
+      "local-checks/restricted-syntax": ["error", { selector: "EmptyStatement", message: "LOCAL-SENTINEL" }]
     },
     overrides: [
       {

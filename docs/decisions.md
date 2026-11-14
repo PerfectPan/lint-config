@@ -148,6 +148,67 @@ an ancestor workspace regardless of freshness, and the exact pins in the fixture
 pinned-version audit make a re-resolve safe. The typescript floor is 6.0.2, not 6.0.0, because npm has no stable
 6.0.0 or 6.0.1 release — only `6.0.0-beta`, `6.0.0-dev.*` and `6.0.1-rc` prereleases.
 
+## Duplicate detection
+
+Two jscpd profiles ship as path-free JSON; scan roots, formats, ignore patterns, baselines and output stay in
+the consuming repository, and jscpd's CLI options replace profile arrays, so an ignore list is never split
+between the two.
+
+- **`jscpd.json`, the gate:** `minLines: 6`, `minTokens: 40`, `threshold: 0`. Clones below six lines or forty
+  tokens are mostly getters and one-line factories, and the reports stay actionable above that floor; the zero
+  threshold makes any reported clone fail the run. `mode: "mild"` pins today's token comparison instead of
+  relying on a future tool default, and `failOnEmpty: true` turns an empty scan (everything filtered by roots,
+  formats or ignores) into a failure, so a broad ignore cannot silence the gate unnoticed. A comma-separated
+  CLI ignore that happens to match every scanned file trips exactly this failure — that is the guard working.
+- **`jscpd-audit.json`, the audit:** the same floor plus `ignoreIdentifiers: "consistent"` (a one-to-one
+  renaming correspondence), `ignoreLiterals: false` (token-level literals stay, so literal-only drift still
+  reports), `similarity: 0.8` with `minNodes: 20` (function-level AST near-misses). It has no threshold and
+  writes JSON: the report's `kind` and `method` fields are the only trustworthy classifier — the console
+  headings of a normalized run call every finding "exact". A reported candidate is a review candidate, not
+  removable code: same-file overlapping windows and literal normalization need a behaviour comparison, and the
+  AST pass leaves test files out in this jscpd version, so token coverage is not AST coverage. The semantic
+  embedding modes stay off: they download a model or call an API this package does not require.
+
+## Unused code
+
+`knip.json` exports `treatConfigHintsAsErrors: true` and `treatTagHintsAsErrors: true`: a hint is an unresolved
+question about the configuration, and a warning that never fails the run accumulates unread. It is plain data —
+no runtime Knip import, no fix behaviour (Knip has fix features; this integration only analyses) — and no
+`extends`: consumers spread the object into their own `knip.ts`, where `entry`, `project`, `paths`, workspaces
+and exceptions stay theirs. Ordinary and production analyses answer different questions (test files keep
+otherwise-unused files alive only in the ordinary run) and are run separately.
+
+## Boundary rules
+
+The boundary generator turns a consumer-owned manifest into oxlint overrides. The manifest owns every value:
+package and context graphs, directories, `flat`/`scoped` shapes, Node capabilities, SDK locations, located
+call paths, entry surfaces (`importableEntries`), pure projections, global bans, effect subsets, structural
+guards and computed entry grants. The generator owns the rule shapes. A few decisions shape the interface:
+
+- **Fixed layer vocabulary.** The five context layers (`domain`, `adapters`, `application`, `infra`, `lib`)
+  and their structural patterns are the generator's contract; a consumer declares the per-layer rules. A
+  repository without contexts uses `flat` packages and needs none of this.
+- **Computed entry grants take plain data.** The shared module never loads a TypeScript compiler (TypeScript 7
+  exposes no Program API, and consumers pin different majors). The consumer computes each restricted entry's
+  exported names and declaration origins and passes `{ all, within }` groups; the generator validates that
+  `within ⊆ all` and that the whitelist is a subset of **`within`** — never merely of `all`, which would admit
+  names declared outside the protected origins.
+- **Owned rule ids solve override erasure.** An oxlint override replaces a rule's options wholesale, so a
+  local override and a generated one fighting over `no-restricted-syntax` would silently drop one side. All
+  generated syntax, import and global restrictions therefore run under the shared `shared-checks` namespace
+  (a thin adapter re-exporting ESLint's mature rules), and `defineLint` refuses local configuration under the
+  ids the generator owns instead of merging by glob intersection. Registering one plugin file twice under two
+  names loses the second alias, so the merge also refuses duplicated names and specifiers.
+- **Node capability lives in the dependency policies.** The generator does not rewrite a consumer's native
+  `import/no-nodejs-modules`; a scope without the Node capability gets an explicit refusal *after* the allow
+  policies, so an external allowlist entry cannot re-open Node built-ins, while scopes with the capability
+  keep their grants and a consumer's stricter native rules keep applying.
+- **Entry surfaces are data.** `importableEntries` replaces per-package name branches: `root` for the bare
+  specifier, `entries` as exact internalPath globs, and no `entries` meaning every subpath is importable.
+- **Diagnostics keep their tags.** Every generated message starts with its tag in brackets (`[layer]`,
+  `[runtime-entry]`, `[undeclared-source]`, `[structural-guard]`, ...), which downstream lint cases match on;
+  the text stays neutral, without repository paths or private links.
+
 ## Opt-in checks
 
 ### Tailwind CSS

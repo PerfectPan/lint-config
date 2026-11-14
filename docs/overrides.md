@@ -17,6 +17,35 @@ therefore has no effect on `.jsx` and `.tsx` files, where the shared override tu
 
 Change a shared default here only when every consuming repository should follow it.
 
+## Boundary composition
+
+A generated boundary configuration contributes `jsPlugins`, `settings` and `overrides`. In `defineLint` the
+overrides apply in the fixed order: shared, then the opt-in checks, then the repository's own, then the
+boundary ones — **the boundary overrides are the tail**, so no local override can weaken a generated rule for
+the files it matches, and the boundary ones own their rule ids (`boundaries/dependencies`,
+`shared-checks/restricted-syntax`, `shared-checks/restricted-imports`, `shared-checks/restricted-globals`)
+plus the `boundaries/*` and `import/*` settings keys. A local rule or override rule under an owned id, or a
+local setting under an owned settings key, is refused with a named conflict instead of being merged or
+overwritten; every other local rule, setting and override is kept. The `missingBoundaryRules` drift check
+recomputes the generator output and reports a lint block that lost or reordered the generated parts.
+
+Hand-spreading instead of `defineLint` carries the same contract manually: spread the shared config first,
+add the repository's own overrides, and put `...boundary.overrides` last — then keep the drift check in a
+repository test, because nothing else enforces the order.
+
+A repository's own restrictions never need the shared namespace: a local `no-restricted-syntax` selector and
+a generated one are different rules and both report. Only the generated rules must use `shared-checks/*`,
+which is why `defineLint` also refuses two jsPlugins entries that share a name or a file — oxlint keeps only
+the first alias of a doubly registered file.
+
+## Duplicate scans
+
+jscpd composes by CLI, not by merging configs. Point `--config` at the profile and keep every repository
+ignore, format and root in the command: a CLI option with a non-empty list replaces the profile's array, so
+half an ignore list in the profile and half in the command silently loses one half. Relative `path` and
+`baseline` fields inside an explicit config resolve from the config file's directory, while CLI roots and
+`--output` resolve from the working directory — keep the profile path-free and there is nothing to reconcile.
+
 ## Exempting paths
 
 Frameworks decide some file names and exports, and generated or vendored code follows its generator. Exempt such

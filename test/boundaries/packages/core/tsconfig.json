@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "types": ["node"],
+    "paths": {
+      "@acme/core": ["./src/index.ts"],
+      "@acme/core/*": ["./src/*"],
+      "effect": ["../../boundaries-stubs/effect.ts"]
+    }
+  },
+  "include": ["src/**/*.ts", "../boundaries-stubs/*.ts"]
+}

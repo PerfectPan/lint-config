@@ -1,0 +1,18 @@
+{
+  "name": "lint-config-boundaries-consumer",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "@perfectpan/lint-config": "workspace:*",
+    "@types/node": "24.19.2",
+    "eslint": "10.14.0",
+    "eslint-import-resolver-typescript": "4.4.5",
+    "eslint-plugin-boundaries": "7.2.0",
+    "knip": "6.45.1",
+    "oxlint": "1.86.0",
+    "oxlint-plugin-eslint": "1.91.0",
+    "oxlint-tsgolint": "7.0.2003",
+    "typescript": "7.0.2",
+    "vite-plus": "1.0.0"
+  }
+}

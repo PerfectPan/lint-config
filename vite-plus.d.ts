@@ -1,5 +1,7 @@
 import type { OxlintConfig } from "vite-plus/lint";
 
+import type { BoundaryLint } from "./boundaries";
+
 // Structural literal types instead of importing OxlintConfig/OxfmtConfig: the config objects then
 // stay assignable across vite-plus, oxlint and oxfmt versions whose type definitions differ.
 // Keep in sync with oxlint.json and oxfmt.json. defineLint uses the consumer's own vite-plus types, which are the
@@ -54,11 +56,30 @@ export interface ShadcnOptions {
   elements: string[];
 }
 
+/** Standalone structural-guard checks: loose object walks, isRecord-style predicates and wide
+ * Record object predicates are refused in `files`, with `objectWalks` as the declared traversal
+ * exception. Needs no package graph; runs through the shared `shared-checks` plugin. */
+export interface DataBoundariesOptions {
+  files: string[];
+  excludeFiles?: string[];
+  objectWalks?: string[];
+}
+
 /**
  * The shared lint config merged with the repository's: `categories`, `options` and `rules` merge key by key,
- * `plugins` are added, and `overrides` apply after the shared ones and the opt-in checks. `tailwind` and `shadcn`
- * are off unless given.
+ * `plugins` are added, and `overrides` apply after the shared ones and the opt-in checks, with the
+ * boundary overrides last. `tailwind` and `shadcn` are off unless given. `dataBoundaries` enables the
+ * standalone structural guards; `boundaries` carries a generated boundary configuration whose rule
+ * ids and generated settings keys the generator owns — a local setting under an owned key is refused,
+ * and giving both features is refused because the manifest owns the guards. Providing `boundaries`
+ * requires the boundary peers (`eslint-plugin-boundaries`, `oxlint-plugin-eslint`); the standalone
+ * guards only need `oxlint-plugin-eslint`.
  */
 export declare function defineLint(
-  config?: OxlintConfig & { tailwind?: false | TailwindOptions; shadcn?: false | ShadcnOptions }
+  config?: OxlintConfig & {
+    tailwind?: false | TailwindOptions;
+    shadcn?: false | ShadcnOptions;
+    dataBoundaries?: false | DataBoundariesOptions;
+    boundaries?: BoundaryLint;
+  }
 ): OxlintConfig;

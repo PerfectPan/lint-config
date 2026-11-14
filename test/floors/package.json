@@ -4,10 +4,17 @@
   "type": "module",
   "devDependencies": {
     "@perfectpan/lint-config": "file:../..",
+    "eslint": "10.14.0",
+    "eslint-import-resolver-typescript": "4.4.5",
     "eslint-plugin-better-tailwindcss": "4.10.0",
+    "eslint-plugin-boundaries": "7.2.0",
+    "jscpd": "5.4.2",
+    "knip": "6.45.1",
     "oxfmt": "0.57.0",
     "oxlint": "1.79.0",
+    "oxlint-plugin-eslint": "1.91.0",
     "oxlint-tsgolint": "0.24.0",
+    "semver": "7.7.2",
     "tailwindcss": "4.3.3",
     "typescript": "6.0.2",
     "vite-plus": "0.2.4"
