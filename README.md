@@ -27,14 +27,11 @@ MoonBit repositories do not use this package; it only covers JavaScript and Type
 | `@perfectpan/lint-config/tsconfig/node.json`    | `base.json` + `module`/`moduleResolution` `NodeNext`                         |
 | `@perfectpan/lint-config/tsconfig/bundler.json` | `base.json` + `ESNext`/`Bundler` resolution, JSON imports, `noEmit`          |
 | `@perfectpan/lint-config/knip`                  | ESM module exporting the shared Knip policy (hints fail the run)             |
-| `@perfectpan/lint-config/boundaries`            | ESM module exporting the boundary generator and its drift check              |
 | `@perfectpan/lint-config/vite-plus`             | ESM module exporting `lint` and `fmt` (the two JSON files) and `defineLint`  |
 
 The package has no runtime dependencies. `oxlint`, `oxlint-tsgolint`, `oxfmt`, `typescript`, `vite-plus`,
-`eslint-plugin-better-tailwindcss`, `eslint-plugin-boundaries`, `eslint-import-resolver-typescript`,
-`oxlint-plugin-eslint`, `jscpd` and `knip` are optional peer dependencies; install the ones your setup uses.
-The oxlint config needs oxlint 1.79 or later (see [File rules](docs/decisions.md#file-rules)); the boundary
-generator needs an oxlint that supports `jsPlugins` for its generated rules.
+`eslint-plugin-better-tailwindcss`, `jscpd` and `knip` are optional peer dependencies; install the ones your setup uses.
+The oxlint config needs oxlint 1.79 or later (see [File rules](docs/decisions.md#file-rules)).
 
 ## Usage
 
@@ -186,54 +183,6 @@ export default {
 Run the ordinary and the production analysis separately (`knip`, `knip --production`); they answer different
 questions, because test files keep otherwise unused files alive only in the ordinary run. Knip itself can fix
 issues; this preset only analyses, and this package ships no wrapper for running it.
-
-### Boundary rules (architecture lint)
-
-`@perfectpan/lint-config/boundaries` generates the `jsPlugins`, `settings` and `overrides` that judge imports
-and syntax against a consumer-owned manifest: package and context graphs, directories, SDK placement, entry
-surfaces, whitelists and traversal exceptions stay in the repository; the rule shapes and composition live
-here. The manifest names no compiler API — computed entry-export groups are supplied as plain data (see
-`BoundaryOptions` in `boundaries.d.ts`).
-
-```ts
-import { fileURLToPath } from "node:url";
-import { defineBoundaryLint } from "@perfectpan/lint-config/boundaries";
-import { defineLint, fmt } from "@perfectpan/lint-config/vite-plus";
-import { defineConfig } from "vite-plus";
-
-import { entryExports, manifest } from "./infra/architecture/manifest.js";
-
-const boundary = defineBoundaryLint({
-  root: fileURLToPath(new URL("./", import.meta.url)),
-  manifest,
-  entryExports
-});
-
-export default defineConfig({
-  lint: defineLint({ boundaries: boundary })
-});
-```
-
-`defineLint` puts the boundary overrides last, where no local override can weaken them, and refuses local rules
-or settings under the exact keys the generator owns. Other settings, including unrelated `import/*` keys,
-remain available to the consumer. Giving `boundaries` and `dataBoundaries` together is refused: the manifest owns the
-structural guards and their traversal exceptions. Without `defineLint`, spread the values manually and keep
-`...boundary.overrides` as the tail of the override list.
-
-For a small repository that only wants the structural guards (loose `typeof object` walks, isRecord-style
-predicates, wide `Schema.Record` object predicates) without a package graph:
-
-```ts
-lint: defineLint({
-  dataBoundaries: {
-    files: ["src/**"],
-    objectWalks: ["src/lib/traversal.ts"]
-  }
-})
-```
-
-The generated rules run under the shared `shared-checks` namespace, so they cannot collide with — or be erased
-by — a repository's own `no-restricted-syntax`, `no-restricted-imports` or `no-restricted-globals` settings.
 
 ## Opt-in checks
 

@@ -178,37 +178,6 @@ no runtime Knip import, no fix behaviour (Knip has fix features; this integratio
 and exceptions stay theirs. Ordinary and production analyses answer different questions (test files keep
 otherwise-unused files alive only in the ordinary run) and are run separately.
 
-## Boundary rules
-
-The boundary generator turns a consumer-owned manifest into oxlint overrides. The manifest owns every value:
-package and context graphs, directories, `flat`/`scoped` shapes, Node capabilities, SDK locations, located
-call paths, entry surfaces (`importableEntries`), pure projections, global bans, effect subsets, structural
-guards and computed entry grants. The generator owns the rule shapes. A few decisions shape the interface:
-
-- **Fixed layer vocabulary.** The five context layers (`domain`, `adapters`, `application`, `infra`, `lib`)
-  and their structural patterns are the generator's contract; a consumer declares the per-layer rules. A
-  repository without contexts uses `flat` packages and needs none of this.
-- **Computed entry grants take plain data.** The shared module never loads a TypeScript compiler (TypeScript 7
-  exposes no Program API, and consumers pin different majors). The consumer computes each restricted entry's
-  exported names and declaration origins and passes `{ all, within }` groups; the generator validates that
-  `within ⊆ all` and that the whitelist is a subset of **`within`** — never merely of `all`, which would admit
-  names declared outside the protected origins.
-- **Owned rule ids solve override erasure.** An oxlint override replaces a rule's options wholesale, so a
-  local override and a generated one fighting over `no-restricted-syntax` would silently drop one side. All
-  generated syntax, import and global restrictions therefore run under the shared `shared-checks` namespace
-  (a thin adapter re-exporting ESLint's mature rules), and `defineLint` refuses local configuration under the
-  ids the generator owns instead of merging by glob intersection. Registering one plugin file twice under two
-  names loses the second alias, so the merge also refuses duplicated names and specifiers.
-- **Node capability lives in the dependency policies.** The generator does not rewrite a consumer's native
-  `import/no-nodejs-modules`; a scope without the Node capability gets an explicit refusal *after* the allow
-  policies, so an external allowlist entry cannot re-open Node built-ins, while scopes with the capability
-  keep their grants and a consumer's stricter native rules keep applying.
-- **Entry surfaces are data.** `importableEntries` replaces per-package name branches: `root` for the bare
-  specifier, `entries` as exact internalPath globs, and no `entries` meaning every subpath is importable.
-- **Diagnostics keep their tags.** Every generated message starts with its tag in brackets (`[layer]`,
-  `[runtime-entry]`, `[undeclared-source]`, `[structural-guard]`, ...), which downstream lint cases match on;
-  the text stays neutral, without repository paths or private links.
-
 ## Opt-in checks
 
 ### Tailwind CSS

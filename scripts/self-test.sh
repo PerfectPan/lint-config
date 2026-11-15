@@ -143,69 +143,6 @@ done
 
 expect_pass "tsc consumer config files (vite-plus types, defineLint)" "$bin/tsc" -p tsc/config-files.json
 
-# The standalone structural-guard opt-in: no package graph, the shared-checks plugin carries the
-# rules, the declared traversal path stays legal, and a local restriction keeps reporting beside
-# the shared one.
-expect_fail "dataBoundaries: loose typeof-object walk refused" "structural-guard" "$bin/vp" lint data-boundary/bad-walk.ts
-expect_pass "dataBoundaries: declared traversal exception" "$bin/vp" lint data-boundary/walker.ts
-expect_fail "dataBoundaries: local restriction survives the shared plugin" "LOCAL-SENTINEL" "$bin/vp" lint data-boundary/local-shared.ts
-expect_fail "dataBoundaries: shared guard reports beside the local one" "structural-guard" "$bin/vp" lint data-boundary/local-shared.ts
-
-# The boundary generator fixture: non-Rivus package and context names prove the shared
-# implementation carries no hidden assumptions. Cases live in test/boundaries.
-cd ../boundaries
-bbin=./node_modules/.bin
-BOUNDARY_CLEAN="packages/core/src/index.ts packages/core/src/values.ts packages/core/src/internal.ts packages/core/src/domain packages/core/src/infra packages/api/src/cli.ts packages/api/src/bootstrap/driver.ts packages/api/src/bootstrap/run-effect.ts packages/api/src/lib/walker.ts packages/api/src/billing/domain/value.ts packages/api/src/billing/domain/value/adapters/codec.ts packages/api/src/billing/lib/util.ts packages/api/src/billing/application/use-case.ts packages/api/src/billing/infra/store.ts packages/api/src/billing/infra/loader.ts packages/api/src/shipping/application/label.ts"
-expect_pass "boundaries: clean sources across both packages" "$bbin/vp" lint $BOUNDARY_CLEAN
-expect_fail "boundaries: cross-context layer violation" "layer" "$bbin/vp" lint packages/api/src/billing/domain/cases/layer-violation.ts
-expect_fail "boundaries: pinned SDK outside its paths" "sdk-location" "$bbin/vp" lint packages/api/src/billing/domain/cases/sdk-outside.ts
-expect_fail "boundaries: pinned SDK needs its own external grant" "external-dependency" "$bbin/vp" lint packages/api/src/billing/domain/cases/sdk-outside.ts
-expect_pass "boundaries: pinned SDK inside its paths" "$bbin/vp" lint packages/api/src/billing/infra/cases/sdk-allowed.ts
-expect_fail "boundaries: root import of a subpath-only surface" "deep-import" "$bbin/vp" lint packages/api/src/billing/domain/cases/core-deep.ts
-expect_fail "boundaries: undeclared subpath of a declared surface" "deep-import" "$bbin/vp" lint packages/api/src/billing/domain/cases/core-deep.ts
-expect_pass "boundaries: declared subpath type import" "$bbin/vp" lint packages/api/src/billing/domain/cases/core-values-type-ok.ts
-expect_fail "boundaries: value import through a type-only entry" "utils-result" "$bbin/vp" lint packages/api/src/billing/domain/cases/core-values-value.ts
-expect_pass "boundaries: whitelist entry name in a model layer" "$bbin/vp" lint packages/api/src/billing/domain/cases/core-root-type-ok.ts
-expect_fail "boundaries: non-whitelist entry name in a model layer" "runtime-entry" "$bbin/vp" lint packages/api/src/billing/domain/cases/core-non-whitelist.ts
-expect_fail "boundaries: non-origin entry name in an application layer" "runtime-entry" "$bbin/vp" lint packages/api/src/billing/application/cases/entry-grant-infra-origin.ts
-expect_fail "boundaries: literal dynamic import of a pinned entry" "runtime-entry" "$bbin/vp" lint packages/api/src/billing/domain/cases/entry-dynamic-import.ts
-expect_pass "boundaries: a computed-entry type query keeps its specific diagnostic" node entry-query-check.mjs
-expect_fail "boundaries: namespace import of a pinned entry" "runtime-entry" "$bbin/vp" lint packages/api/src/billing/domain/cases/entry-namespace-import.ts
-expect_fail "boundaries: loose typeof-object walk outside lib" "structural-guard" "$bbin/vp" lint packages/api/src/billing/domain/cases/typeof-walk.ts
-expect_fail "boundaries: renamed isRecord predicate" "structural-guard" "$bbin/vp" lint packages/api/src/billing/domain/cases/is-record.ts
-expect_fail "boundaries: wide Record predicate in infra" "structural-guard" "$bbin/vp" lint packages/api/src/billing/infra/cases/schema-record.ts
-expect_pass "boundaries: shared library traversal tool" "$bbin/vp" lint packages/api/src/lib/walker.ts
-expect_fail "boundaries: Node built-in in a Node-free package" "node-builtin" "$bbin/vp" lint packages/core/src/cases/node-import.ts
-expect_fail "boundaries: unlisted external dependency" "external-dependency" "$bbin/vp" lint packages/api/src/billing/infra/cases/external-unlisted.ts
-expect_fail "boundaries: createRequire outside its declared path" "create-require" "$bbin/vp" lint packages/api/src/billing/infra/cases/create-require.ts
-expect_pass "boundaries: declared loader evaluates computed imports" "$bbin/vp" lint packages/api/src/billing/infra/loader.ts
-expect_fail "boundaries: computed import outside the declared loader" "dynamic-import" "$bbin/vp" lint packages/api/src/bootstrap/cases/computed-import.ts
-expect_fail "boundaries: Effect runner outside its declared paths" "effect-runner" "$bbin/vp" lint packages/api/src/billing/application/cases/run-effect.ts
-expect_pass "boundaries: bootstrap may run effects" "$bbin/vp" lint packages/api/src/bootstrap/run-effect.ts
-expect_fail "boundaries: package entry imported from inside" "entry" "$bbin/vp" lint packages/api/src/bootstrap/cases/entry-import.ts
-expect_fail "boundaries: pure projection holds local declarations" "entry-purity" "$bbin/vp" lint packages/core/src/pure-case.ts
-expect_fail "boundaries: no-export-star entry re-exports names" "entry-export" "$bbin/vp" lint packages/core/src/export-star-case.ts
-expect_fail "boundaries: undeclared top-level source fails closed" "undeclared-source" "$bbin/vp" lint packages/api/src/rogue/value.ts
-expect_fail "boundaries: unresolvable import is refused" "unresolved" "$bbin/vp" lint packages/api/src/billing/domain/cases/unresolved.ts
-expect_fail "boundaries: a package with no importable surface refuses everything" "exposes no importable surface" "$bbin/vp" lint packages/api/src/billing/infra/cases/void-import.ts
-expect_fail "boundaries: an adjacent package name is not a pinned entry" "external-dependency" "$bbin/vp" lint packages/api/src/billing/application/cases/adjacent-name.ts
-expect_pass "boundaries: an adjacent package name never trips the entry matcher" sh -c '! ./node_modules/.bin/vp lint --format json packages/api/src/billing/application/cases/adjacent-name.ts 2>/dev/null | grep -q runtime-entry'
-expect_fail "boundaries: relative import leaves its package" "relative-escape" "$bbin/vp" lint packages/core/src/cases/escape.ts
-expect_fail "boundaries: model layer runs no Schema decode" "model-decode" "$bbin/vp" lint packages/api/src/billing/application/cases/decode-call.ts
-expect_fail "boundaries: aliased Schema cannot hide a decode" "model-decode" "$bbin/vp" lint packages/api/src/billing/application/cases/decode-renamed.ts
-expect_fail "boundaries: adapters import effect by name only" "domain-effect" "$bbin/vp" lint packages/api/src/billing/domain/value/adapters/namespace-effect.ts
-expect_pass "boundaries: adapters validate with the effect subset" "$bbin/vp" lint packages/api/src/billing/domain/value/adapters/codec.ts
-expect_fail "boundaries: forbidden global in a pure layer" "domain-global" "$bbin/vp" lint packages/api/src/billing/domain/cases/globals.ts
-expect_pass "boundaries: infra may read environment globals" "$bbin/vp" lint packages/api/src/billing/infra/cases/globals.ts
-expect_fail "boundaries: whole-package globals" "domain-global" "$bbin/vp" lint packages/core/src/cases/globals.ts
-expect_fail "boundaries: Node stays refused when the external allowlist names it" "node-builtin" "$bbin/vp" lint packages/api/src/billing/domain/value/adapters/node-via-external.ts
-expect_pass "boundaries: a Node-capable entry keeps its grant" "$bbin/vp" lint packages/api/src/cli.ts
-expect_fail "boundaries: the shared library does not inherit the pure layers' workspace" "package-dependency" "$bbin/vp" lint packages/api/src/lib/core-import.ts
-expect_fail "boundaries: the shared library keeps the entry-grant tier" "runtime-entry" "$bbin/vp" lint packages/api/src/lib/core-import.ts
-expect_pass "boundaries: composition and drift assertions" node composition-check.mjs
-expect_pass "boundaries: published declarations compose with Vite+/Oxlint and Knip types" "$bbin/tsc" -p tsc/tsconfig.json
-cd ../quality
-
 # The quality fixture: the two jscpd profiles and the shared Knip policy, each proven against real
 # scans with consumer-owned roots and ignores. Reports live under the gitignored tmp/ tree and are
 # removed even when a case fails.
@@ -233,6 +170,7 @@ expect_pass "jscpd audit: pair, kind and behaviour assertions" node audit-kinds.
 expect_pass "knip: ordinary vs production vs strict assertions" node knip-modes.mjs
 expect_pass "knip: reachable sources pass" sh -c 'cd knip-clean && ../node_modules/.bin/knip'
 expect_fail "knip: a configuration hint fails under the shared policy" "Configuration hints" sh -c 'cd knip-hints && ../node_modules/.bin/knip'
+expect_pass "knip: published declaration composes with KnipConfig" ../consumer/node_modules/.bin/tsc -p tsc/tsconfig.json
 
 if ((failures > 0)); then
   printf '\n%d check(s) failed\n' "$failures"

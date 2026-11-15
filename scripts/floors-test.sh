@@ -143,14 +143,6 @@ expect_pass "jscpd: consumer ignore clears the scan" "$bin/jscpd" --config node_
 # knip floor: the shared policy loads through the spread import and an unreachable file reports.
 expect_fail "knip: unreachable file reports at the floor" "Unused files" "$bin/knip" -c knip-smoke/knip.js
 
-# boundary floors: the generated configuration loads on the floor oxlint through jsPlugins, with the
-# boundary plugin and the TypeScript resolver at their pinned floors. The clean case exercises the
-# resolver for real: a .js specifier resolves to its .ts sibling and the package root and subpath
-# resolve through tsconfig paths — with resolution broken, the dependency policies refuse the imports.
-expect_pass "boundaries: clean source with js-to-ts and package resolution" "$bin/oxlint" -c oxlint.config.mjs packages/core/src/clean.ts
-expect_fail "boundaries: Node built-in refused in a Node-free package" "node-builtin" "$bin/oxlint" -c oxlint.config.mjs packages/core/src/cases/node-import.ts
-expect_fail "boundaries: an unresolvable subpath is refused" "unresolved" "$bin/oxlint" -c oxlint.config.mjs packages/core/src/cases/unresolved-import.ts
-
 if ((failures > 0)); then
   printf '\n%d check(s) failed\n' "$failures"
   exit 1
