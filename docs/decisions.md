@@ -148,6 +148,36 @@ an ancestor workspace regardless of freshness, and the exact pins in the fixture
 pinned-version audit make a re-resolve safe. The typescript floor is 6.0.2, not 6.0.0, because npm has no stable
 6.0.0 or 6.0.1 release — only `6.0.0-beta`, `6.0.0-dev.*` and `6.0.1-rc` prereleases.
 
+## Duplicate detection
+
+Two jscpd profiles ship as path-free JSON; scan roots, formats, ignore patterns, baselines and output stay in
+the consuming repository, and jscpd's CLI options replace profile arrays, so an ignore list is never split
+between the two.
+
+- **`jscpd.json`, the gate:** `minLines: 6`, `minTokens: 40`, `threshold: 0`. Clones below six lines or forty
+  tokens are mostly getters and one-line factories, and the reports stay actionable above that floor; the zero
+  threshold makes any reported clone fail the run. `mode: "mild"` pins today's token comparison instead of
+  relying on a future tool default, and `failOnEmpty: true` turns an empty scan (everything filtered by roots,
+  formats or ignores) into a failure, so a broad ignore cannot silence the gate unnoticed. A comma-separated
+  CLI ignore that happens to match every scanned file trips exactly this failure — that is the guard working.
+- **`jscpd-audit.json`, the audit:** the same floor plus `ignoreIdentifiers: "consistent"` (a one-to-one
+  renaming correspondence), `ignoreLiterals: false` (token-level literals stay, so literal-only drift still
+  reports), `similarity: 0.8` with `minNodes: 20` (function-level AST near-misses). It has no threshold and
+  writes JSON: the report's `kind` and `method` fields are the only trustworthy classifier — the console
+  headings of a normalized run call every finding "exact". A reported candidate is a review candidate, not
+  removable code: same-file overlapping windows and literal normalization need a behaviour comparison, and the
+  AST pass leaves test files out in this jscpd version, so token coverage is not AST coverage. The semantic
+  embedding modes stay off: they download a model or call an API this package does not require.
+
+## Unused code
+
+`knip.json` exports `treatConfigHintsAsErrors: true` and `treatTagHintsAsErrors: true`: a hint is an unresolved
+question about the configuration, and a warning that never fails the run accumulates unread. It is plain data —
+no runtime Knip import, no fix behaviour (Knip has fix features; this integration only analyses) — and no
+`extends`: consumers spread the object into their own `knip.ts`, where `entry`, `project`, `paths`, workspaces
+and exceptions stay theirs. Ordinary and production analyses answer different questions (test files keep
+otherwise-unused files alive only in the ordinary run) and are run separately.
+
 ## Opt-in checks
 
 ### Tailwind CSS

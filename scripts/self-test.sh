@@ -143,6 +143,35 @@ done
 
 expect_pass "tsc consumer config files (vite-plus types, defineLint)" "$bin/tsc" -p tsc/config-files.json
 
+# The quality fixture: the two jscpd profiles and the shared Knip policy, each proven against real
+# scans with consumer-owned roots and ignores. Reports live under the gitignored tmp/ tree and are
+# removed even when a case fails.
+cd ../quality
+qbin=./node_modules/.bin
+QUALITY_TMP=tmp/quality-checks
+cleanup() { rm -rf "$QUALITY_TMP"; }
+trap cleanup EXIT
+rm -rf "$QUALITY_TMP"
+mkdir -p "$QUALITY_TMP"
+
+expect_fail "jscpd gate: exact clone over the zero threshold" "over threshold" "$qbin/jscpd" --config node_modules/@perfectpan/lint-config/jscpd.json src exact renamed vendored
+expect_pass "jscpd gate: consumer ignore clears the scan" "$qbin/jscpd" --config node_modules/@perfectpan/lint-config/jscpd.json src exact --ignore '**/exact-*.ts'
+expect_pass "jscpd gate: renamed identifiers stay below the exact gate" "$qbin/jscpd" --config node_modules/@perfectpan/lint-config/jscpd.json renamed
+expect_fail "jscpd gate: an empty directory fails the scan" "jscpd analyzed no files" sh -c 'empty="$(mktemp -d)" && ./node_modules/.bin/jscpd --config node_modules/@perfectpan/lint-config/jscpd.json "$empty"; status=$?; rm -rf "$empty"; exit $status'
+expect_fail "jscpd gate: the shared file carries no ignores of its own" "over threshold" "$qbin/jscpd" --config node_modules/@perfectpan/lint-config/jscpd.json vendored
+expect_pass "jscpd audit: a normalized scan is not a gate" "$qbin/jscpd" --config node_modules/@perfectpan/lint-config/jscpd-audit.json exact --output "$QUALITY_TMP/audit-exact"
+expect_pass "jscpd audit: the renamed pair is a distinct kind" "$qbin/jscpd" --config node_modules/@perfectpan/lint-config/jscpd-audit.json renamed --output "$QUALITY_TMP/audit-renamed"
+expect_pass "jscpd audit: the mixed scan is not a gate" "$qbin/jscpd" --config node_modules/@perfectpan/lint-config/jscpd-audit.json src ast-similar --output "$QUALITY_TMP/audit-src-ast"
+expect_pass "jscpd audit: the path-free config reads from another working directory" sh -c 'cd src && ../node_modules/.bin/jscpd --config ../node_modules/@perfectpan/lint-config/jscpd-audit.json . --output ../'"$QUALITY_TMP"'/audit-cwd'
+expect_pass "jscpd audit: an isolated config without similarity is written" node no-similarity-config.mjs "$QUALITY_TMP/no-similarity.json"
+expect_pass "jscpd audit: the similarity-less config reports nothing" "$qbin/jscpd" --config "$QUALITY_TMP/no-similarity.json" ast-similar --output "$QUALITY_TMP/audit-no-similarity"
+expect_pass "jscpd audit: pair, kind and behaviour assertions" node audit-kinds.mjs "$QUALITY_TMP"
+
+expect_pass "knip: ordinary vs production vs strict assertions" node knip-modes.mjs
+expect_pass "knip: reachable sources pass" sh -c 'cd knip-clean && ../node_modules/.bin/knip'
+expect_fail "knip: a configuration hint fails under the shared policy" "Configuration hints" sh -c 'cd knip-hints && ../node_modules/.bin/knip'
+expect_pass "knip: published declaration composes with KnipConfig" ../consumer/node_modules/.bin/tsc -p tsc/tsconfig.json
+
 if ((failures > 0)); then
   printf '\n%d check(s) failed\n' "$failures"
   exit 1

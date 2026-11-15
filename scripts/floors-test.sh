@@ -61,39 +61,33 @@ check_pinned_versions() {
 # The fixture holds every peer of @perfectpan/lint-config so the smoke runs at the advertised floors, and
 # check_pinned_versions holds it to its own package.json. This second guard compares those pins with the
 # floors the root package.json declares, so raising a floor without re-pinning the fixture fails here
-# instead of leaving the floor silently unproven. Only ">=" floors over stable versions are understood;
-# anything else fails loudly rather than skipping the guard. tailwindcss and the lint-config file link are
-# fixture-only and take no part in this comparison.
+# instead of leaving the floor silently unproven. Ranges are resolved with semver (pinned in the fixture):
+# the pin must satisfy the range AND equal its computed minimum, so a higher in-range pin cannot pass as
+# proof of the advertised floor. tailwindcss and semver, and the lint-config file link, are fixture-only
+# and take no part in this comparison.
 check_floors_match() {
   node --input-type=module -e '
     import { readFileSync } from "node:fs";
+    import { minVersion, satisfies } from "semver";
 
     const { peerDependencies } = JSON.parse(readFileSync("../../package.json", "utf8"));
     const { devDependencies } = JSON.parse(readFileSync("package.json", "utf8"));
 
-    const stableTriple = (version) => {
-      if (/-|\+/.test(version)) throw new Error(`unsupported version "${version}"`);
-      return version.split(".").map(Number);
-    };
-    const floorTriple = (range) => {
-      if (!range.startsWith(">=")) throw new Error(`unsupported floor range "${range}"`);
-      return stableTriple(range.slice(2));
-    };
-    const atLeast = (pinned, floor) => {
-      for (let i = 0; i < 3; i += 1) {
-        if (pinned[i] !== floor[i]) return pinned[i] > floor[i];
-      }
-      return true;
-    };
-
     const wrong = [];
     for (const [name, range] of Object.entries(peerDependencies)) {
-      const floor = floorTriple(range);
+      let floor;
+      try {
+        floor = minVersion(range).version;
+      } catch {
+        throw new Error(`unsupported floor range "${range}"`);
+      }
       const pin = devDependencies[name];
       if (pin === undefined) {
         wrong.push(`${name}: root floor ${range} but not pinned in test/floors/package.json`);
-      } else if (!atLeast(stableTriple(pin), floor)) {
-        wrong.push(`${name}: pinned ${pin}, below the root floor ${range}`);
+      } else if (!satisfies(pin, range)) {
+        wrong.push(`${name}: pinned ${pin}, outside the root floor range ${range}`);
+      } else if (pin !== floor) {
+        wrong.push(`${name}: pinned ${pin}, but the advertised floor is ${floor}`);
       }
     }
     if (wrong.length > 0) {
@@ -140,6 +134,14 @@ expect_pass "vite-plus fmt: clean source" "$bin/vp" fmt --check src
 # oxfmt and vite-plus floors: the shared CHANGELOG.* ignore loads and matches at any depth below the config.
 expect_fail "oxfmt: changelog fixture is unformatted" "Format issues found" "$bin/oxfmt" -c node_modules/@perfectpan/lint-config/oxfmt.json --check changelog
 expect_pass "vite-plus fmt: skips CHANGELOG.md at any depth" "$bin/vp" fmt --check changelog
+
+# jscpd floor: the shared gate profile runs through the floor binary, blocks an exact clone with the
+# zero threshold, and honours consumer-owned ignores and roots.
+expect_fail "jscpd: gate blocks an exact clone" "over threshold" "$bin/jscpd" --config node_modules/@perfectpan/lint-config/jscpd.json duplicates
+expect_pass "jscpd: consumer ignore clears the scan" "$bin/jscpd" --config node_modules/@perfectpan/lint-config/jscpd.json duplicates --ignore '**/clone-*.ts'
+
+# knip floor: the shared policy loads through the spread import and an unreachable file reports.
+expect_fail "knip: unreachable file reports at the floor" "Unused files" "$bin/knip" -c knip-smoke/knip.js
 
 if ((failures > 0)); then
   printf '\n%d check(s) failed\n' "$failures"

@@ -1,0 +1,8 @@
+{
+  "minLines": 6,
+  "minTokens": 40,
+  "mode": "mild",
+  "threshold": 0,
+  "failOnEmpty": true,
+  "reporters": ["console"]
+}

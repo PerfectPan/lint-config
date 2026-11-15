@@ -1,0 +1,11 @@
+{
+  "minLines": 6,
+  "minTokens": 40,
+  "mode": "mild",
+  "failOnEmpty": true,
+  "ignoreIdentifiers": "consistent",
+  "ignoreLiterals": false,
+  "similarity": 0.8,
+  "minNodes": 20,
+  "reporters": ["json", "console"]
+}

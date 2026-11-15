@@ -1,0 +1,4 @@
+{
+  "extends": "@perfectpan/lint-config/tsconfig/bundler.json",
+  "include": ["./knip-config.ts"]
+}

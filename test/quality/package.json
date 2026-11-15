@@ -1,0 +1,11 @@
+{
+  "name": "lint-config-quality-consumer",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "@perfectpan/lint-config": "workspace:*",
+    "jscpd": "5.4.2",
+    "knip": "6.45.1",
+    "vitest": "5.0.1"
+  }
+}

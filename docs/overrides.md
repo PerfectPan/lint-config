@@ -17,6 +17,14 @@ therefore has no effect on `.jsx` and `.tsx` files, where the shared override tu
 
 Change a shared default here only when every consuming repository should follow it.
 
+## Duplicate scans
+
+jscpd composes by CLI, not by merging configs. Point `--config` at the profile and keep every repository
+ignore, format and root in the command: a CLI option with a non-empty list replaces the profile's array, so
+half an ignore list in the profile and half in the command silently loses one half. Relative `path` and
+`baseline` fields inside an explicit config resolve from the config file's directory, while CLI roots and
+`--output` resolve from the working directory — keep the profile path-free and there is nothing to reconcile.
+
 ## Exempting paths
 
 Frameworks decide some file names and exports, and generated or vendored code follows its generator. Exempt such

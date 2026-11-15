@@ -21,14 +21,17 @@ MoonBit repositories do not use this package; it only covers JavaScript and Type
 | ----------------------------------------------- | ---------------------------------------------------------------------------- |
 | `@perfectpan/lint-config/oxlint.json`           | oxlint base config: plugins, categories, options, rules and overrides        |
 | `@perfectpan/lint-config/oxfmt.json`            | oxfmt options and the ignore for generated `CHANGELOG.*` files               |
+| `@perfectpan/lint-config/jscpd.json`            | jscpd gate profile: exact duplicates fail with the zero threshold            |
+| `@perfectpan/lint-config/jscpd-audit.json`      | jscpd audit profile: renamed and AST-similar candidates, no default threshold |
 | `@perfectpan/lint-config/tsconfig/base.json`    | strict compiler options without module, output, `types` or `include` choices |
 | `@perfectpan/lint-config/tsconfig/node.json`    | `base.json` + `module`/`moduleResolution` `NodeNext`                         |
 | `@perfectpan/lint-config/tsconfig/bundler.json` | `base.json` + `ESNext`/`Bundler` resolution, JSON imports, `noEmit`          |
+| `@perfectpan/lint-config/knip`                  | ESM module exporting the shared Knip policy (hints fail the run)             |
 | `@perfectpan/lint-config/vite-plus`             | ESM module exporting `lint` and `fmt` (the two JSON files) and `defineLint`  |
 
-The package has no runtime dependencies. `oxlint`, `oxlint-tsgolint`, `oxfmt`, `typescript`, `vite-plus` and
-`eslint-plugin-better-tailwindcss` are optional peer dependencies; install the ones your setup uses. The oxlint config
-needs oxlint 1.79 or later (see [File rules](docs/decisions.md#file-rules)).
+The package has no runtime dependencies. `oxlint`, `oxlint-tsgolint`, `oxfmt`, `typescript`, `vite-plus`,
+`eslint-plugin-better-tailwindcss`, `jscpd` and `knip` are optional peer dependencies; install the ones your setup uses.
+The oxlint config needs oxlint 1.79 or later (see [File rules](docs/decisions.md#file-rules)).
 
 ## Usage
 
@@ -135,6 +138,51 @@ export default defineConfig({ ...fmt, ignorePatterns: [...fmt.ignorePatterns, "d
 
 Use `tsconfig/bundler.json` for code built by Vite, tsdown or another bundler, and `tsconfig/base.json` when the
 repository sets `module` itself. TypeScript resolves the package specifier through the `exports` map.
+
+### Duplicate detection (jscpd)
+
+Both profiles are path-free JSON: scan roots, formats, ignore patterns, baseline and output belong to the
+repository and stay in its own command. jscpd has no config `extends`, so point `--config` at the installed
+file; a CLI option with a non-empty list **replaces** the profile's value, so keep every ignore pattern in one
+place instead of splitting the list between the profile and the command.
+
+```sh
+# The exact gate: an exact clone fails the run with the zero threshold.
+jscpd --config node_modules/@perfectpan/lint-config/jscpd.json packages --format 'typescript,javascript' --ignore '**/*.test.ts'
+
+# The audit profile reports renamed-identifier and AST-similar candidates without a default threshold. AST
+# similarity leaves test files out in this jscpd version, and a reported candidate still needs a
+# behaviour review before anyone calls it removable code.
+jscpd --config node_modules/@perfectpan/lint-config/jscpd-audit.json packages scripts --output reports/jscpd
+```
+
+An empty scan (no file survived the roots, formats and ignores) fails through `failOnEmpty`, so a broad ignore
+cannot silence the gate silently.
+After reviewing its findings, a consumer may set a CLI threshold for the audit profile. Empty-input and
+execution errors still fail even when duplicate findings are non-blocking.
+
+### Unused code (knip)
+
+`@perfectpan/lint-config/knip` exports plain data: configuration and tag hints fail the run. Spread it into the
+repository's own Knip configuration; `entry`, `project`, `paths`, workspaces, ignores and plugin paths are
+repository data, and there is no `extends` — ordinary object spread is the composition, and array values of the
+preset are replaced by the repository's own unless it concatenates them.
+
+```ts
+// knip.ts
+import { knip } from "@perfectpan/lint-config/knip";
+import type { KnipConfig } from "knip";
+
+export default {
+  ...knip,
+  entry: ["src/index.ts"],
+  project: ["src/**/*.ts"]
+} satisfies KnipConfig;
+```
+
+Run the ordinary and the production analysis separately (`knip`, `knip --production`); they answer different
+questions, because test files keep otherwise unused files alive only in the ordinary run. Knip itself can fix
+issues; this preset only analyses, and this package ships no wrapper for running it.
 
 ## Opt-in checks
 
