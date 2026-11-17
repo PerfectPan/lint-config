@@ -27,6 +27,7 @@ MoonBit repositories do not use this package; it only covers JavaScript and Type
 | `@perfectpan/lint-config/tsconfig/node.json`    | `base.json` + `module`/`moduleResolution` `NodeNext`                         |
 | `@perfectpan/lint-config/tsconfig/bundler.json` | `base.json` + `ESNext`/`Bundler` resolution, JSON imports, `noEmit`          |
 | `@perfectpan/lint-config/knip`                  | ESM module exporting the shared Knip policy (hints fail the run)             |
+| `@perfectpan/lint-config/doc-translations`      | ESM module checking that translated Markdown documents match their sources   |
 | `@perfectpan/lint-config/vite-plus`             | ESM module exporting `lint` and `fmt` (the two JSON files) and `defineLint`  |
 
 The package has no runtime dependencies. `oxlint`, `oxlint-tsgolint`, `oxfmt`, `typescript`, `vite-plus`,
@@ -183,6 +184,51 @@ export default {
 Run the ordinary and the production analysis separately (`knip`, `knip --production`); they answer different
 questions, because test files keep otherwise unused files alive only in the ordinary run. Knip itself can fix
 issues; this preset only analyses, and this package ships no wrapper for running it.
+
+### Documentation translations
+
+`@perfectpan/lint-config/doc-translations` checks Markdown documents that have a translation, such as a Chinese reading
+copy of each English guide. It has no dependencies; it uses `fs.globSync` and `path.matchesGlob`, and CI runs it on
+Node.js 26. The repository says which documents are translated and where each translation lives, then calls
+`runDocTranslations` from a script that CI and the pre-commit hook run:
+
+```js
+// scripts/check-doc-translations.mjs
+import process from "node:process";
+import { runDocTranslations } from "@perfectpan/lint-config/doc-translations";
+
+process.exitCode = runDocTranslations({
+  sources: ["README.md", "docs/guide/*.md"],
+  translations: ["README.zh-CN.md", "docs/**/*.zh-CN.md"],
+  exclude: ["docs/guide/0000-template.md"],
+  translationOf: (path) => path.replace(/\.md$/, ".zh-CN.md"),
+  header: (path) => `> 中文阅读版。以英文原文 ${path} 为准。`,
+  stamp: true
+});
+```
+
+A tree per language works the same way: `sources: ["docs/en/**/*.md"]`, `translations: ["docs/zh-CN/**/*.md"]`,
+`translationOf: (path) => path.replace(/^docs\/en\//, "docs/zh-CN/")`. Keep the patterns under the documentation
+directories; a pattern starting with `**` walks the whole repository.
+
+For every pair the check requires:
+
+- the translation exists, every file `translations` matches belongs to a document in scope, and `translationOf` maps
+  each document to its own path inside `translations`;
+- the `header` line first, when given;
+- the source's headings (levels in order), code blocks (unchanged), tables (rows and columns), list items (kind and
+  indent) and links, in the same order;
+- links to a translated document point to its translation and links to a translation point back to its source,
+  other targets stay as written (a target starting with `/` resolves from the repository root), and every
+  `#fragment` in the translation names a heading or `id` of its target, with GitHub's heading anchors;
+- with `stamp: true`, a `<!-- source-blob: <hash> -->` line after the header holding the Git blob hash of the source
+  as it was when the translation was confirmed. Editing a source fails the check until its translation is updated
+  and recorded again with `node scripts/check-doc-translations.mjs --write <source or translation>...` (paths
+  relative to the working directory), which writes the line only for pairs that pass every other check. `git show <hash>` prints the confirmed source, so the change
+  to carry over into the translation is the difference between that text and the current source.
+
+The check cannot tell whether the translation says the same thing; reviewers check that.
+[docs/decisions.md](docs/decisions.md#documentation-translations) records what the line-based scan leaves out.
 
 ## Opt-in checks
 
