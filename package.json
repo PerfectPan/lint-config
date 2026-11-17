@@ -25,6 +25,10 @@
       "types": "./knip.d.ts",
       "default": "./knip.js"
     },
+    "./doc-translations": {
+      "types": "./doc-translations.d.ts",
+      "default": "./doc-translations.js"
+    },
     "./vite-plus": {
       "types": "./vite-plus.d.ts",
       "default": "./vite-plus.js"
@@ -40,6 +44,8 @@
     "knip.js",
     "knip.d.ts",
     "knip.json",
+    "doc-translations.js",
+    "doc-translations.d.ts",
     "vite-plus.js",
     "vite-plus.d.ts",
     "tailwind",

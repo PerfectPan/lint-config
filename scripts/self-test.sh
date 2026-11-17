@@ -141,7 +141,8 @@ for variant in base node bundler; do
   expect_fail "tsc tsconfig/$variant.json strict flags" "TS2532" "$bin/tsc" -p "tsc/$variant.strict.json"
 done
 
-expect_pass "tsc consumer config files (vite-plus types, defineLint)" "$bin/tsc" -p tsc/config-files.json
+expect_pass "tsc consumer config files (vite-plus types, defineLint, doc-translations)" "$bin/tsc" -p tsc/config-files.json
+expect_pass "doc-translations: pairs, structure, links, anchors and stamps" node --test ../doc-translations/doc-translations.test.mjs
 
 # The quality fixture: the two jscpd profiles and the shared Knip policy, each proven against real
 # scans with consumer-owned roots and ignores. Reports live under the gitignored tmp/ tree and are

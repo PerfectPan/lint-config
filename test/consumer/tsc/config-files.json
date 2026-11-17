@@ -1,5 +1,5 @@
 {
   "extends": "@perfectpan/lint-config/tsconfig/bundler.json",
   "compilerOptions": { "types": ["node"] },
-  "include": ["../vite.config.ts", "../oxlint-package.config.ts", "../oxfmt-package.config.ts"]
+  "include": ["../vite.config.ts", "../oxlint-package.config.ts", "../oxfmt-package.config.ts", "../doc-translations-script.ts"]
 }

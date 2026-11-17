@@ -178,6 +178,42 @@ no runtime Knip import, no fix behaviour (Knip has fix features; this integratio
 and exceptions stay theirs. Ordinary and production analyses answer different questions (test files keep
 otherwise-unused files alive only in the ordinary run) and are run separately.
 
+## Documentation translations
+
+`doc-translations.js` checks a translated Markdown document against its source. It is the shared form of the checks
+in PerfectPan/estela (a sibling `.zh-CN.md` reading copy per document, with a fixed first line) and
+PerfectPan/rivus-agent (`docs/en` and `docs/zh-CN` trees), so the layout is the repository's choice through
+`translationOf`.
+
+- **A line scan, no Markdown parser:** the package has no runtime dependencies, and consumers run the check from
+  root scripts that may sit outside every workspace package's install. The scan reads ATX headings, fenced code
+  blocks at any indentation (fences nested in list items), pipe tables (a header row followed by a delimiter row),
+  list items, and link targets (`](`, reference definitions other than footnotes, `href` and `src`) outside fences
+  and code spans; a code span may wrap across the lines of one paragraph. As in CommonMark, an ordered item not
+  numbered 1 does not interrupt a paragraph, so a hard-wrapped line starting with `2.` is text. The scan does not
+  see setext headings, indented code blocks, tables without a leading pipe, autolinks or bare URLs; a translation
+  keeps the source's Markdown form, so these are missed on both sides rather than misreported.
+- **GitHub's anchors, reimplemented:** a fragment is checked against the anchors github-slugger gives the target's
+  headings (lower case, punctuation removed, spaces to `-`, the first free `-1`, `-2`, … for a repeat) plus its
+  `id` and `name` attributes outside code. The heading text is rendered first: code spans keep their content,
+  links and images keep their text, HTML tags, `_` emphasis and backslash escapes are removed, and character
+  references are decoded. Other inline forms, such as `*` inside a word, can give an anchor GitHub does not.
+- **Structure in order, not counts:** a translation with the same number of headings but a level moved, or a code
+  block edited and another dropped, says something different. The first divergence of each kind is reported with
+  both line numbers.
+- **Links are mapped, not copied:** a reader of a translation stays in that language, so a link to a translated
+  document points to the translation, and a language switcher points back. Links to either file of the pair itself
+  match either file, because switchers are written both as a link to the other language and as a self link next to
+  it. Fragments are checked because translated headings change their anchors. GitHub resolves a link starting with
+  `/` from the repository root, and so does the check.
+- **`stamp` records the source's blob hash, not a commit:** the hash is computable for a file edited in the same
+  change, compares contents only, and names the exact source text the translation was confirmed against
+  (`git show <hash>`), so an update patches the translation against the source's diff instead of translating it
+  again. CRLF is read as LF so a Windows checkout hashes like the stored file. The line sits in the translation
+  rather than a separate record file, so two changes to different pairs never touch the same file; `--write` takes
+  the pairs to record by name because recording is the act of confirming them, and it refuses a pair that fails any
+  other check.
+
 ## Opt-in checks
 
 ### Tailwind CSS
