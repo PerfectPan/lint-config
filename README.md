@@ -215,14 +215,17 @@ For every pair the check requires:
 
 - the translation exists, every file `translations` matches belongs to a document in scope, and `translationOf` maps
   each document to its own path inside `translations`;
-- the `header` line first, when given;
-- the source's headings (levels in order), code blocks (unchanged), tables (rows and columns), list items (kind and
-  indent) and links, in the same order;
+- the `header` line first, when given (after the YAML frontmatter, in a translation that has one);
+- the source's headings (levels in order), code blocks (language and body unchanged; meta after the language, such as
+  a `title="…"` caption, may be translated), tables (rows and columns), list items (kind and indent) and links, in
+  the same order. Frontmatter is page metadata, not Markdown, and is not compared;
 - links to a translated document point to its translation and links to a translation point back to its source,
   other targets stay as written (a target starting with `/` resolves from the repository root), and every
-  `#fragment` in the translation names a heading or `id` of its target, with GitHub's heading anchors;
-- with `stamp: true`, a `<!-- source-blob: <hash> -->` line after the header holding the Git blob hash of the source
-  as it was when the translation was confirmed. Editing a source fails the check until its translation is updated
+  `#fragment` in the translation that points to a `.md` file names a heading or `id` in it, with GitHub's heading
+  anchors (fragments to `.mdx` pages and site routes are not checked);
+- with `stamp: true`, the Git blob hash of the source as it was when the translation was confirmed: a
+  `<!-- source-blob: <hash> -->` line after the header, or a `source-blob: <hash>` key in the frontmatter of a
+  translation that has one, such as an MDX page. Editing a source fails the check until its translation is updated
   and recorded again with `node scripts/check-doc-translations.mjs --write <source or translation>...` (paths
   relative to the working directory), which writes the line only for pairs that pass every other check. `git show <hash>` prints the confirmed source, so the change
   to carry over into the translation is the difference between that text and the current source.
