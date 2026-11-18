@@ -198,6 +198,11 @@ PerfectPan/rivus-agent (`docs/en` and `docs/zh-CN` trees), so the layout is the 
   `id` and `name` attributes outside code. The heading text is rendered first: code spans keep their content,
   links and images keep their text, HTML tags, `_` emphasis and backslash escapes are removed, and character
   references are decoded. Other inline forms, such as `*` inside a word, can give an anchor GitHub does not.
+- **Fragments only into `.md` files:** GitHub gives every `.md` file the anchors above, so they can be computed. A
+  site page's anchors and links are the site's: fumadocs, for one, takes a custom `[#id]` at the end of a heading and
+  lets the site replace the slugger, and its pages link by route (`/docs/connection/cost#…`), which only the site
+  maps to a file. Checking them would mean reimplementing each site's routing and anchors, so fragments into `.mdx`
+  pages and site routes are left to the site.
 - **Code is compared, captions are not:** a code block's body and language are copied unchanged, so a reader of
   either language runs the same code; a translated block cannot be compared at all, so drift inside it goes
   unnoticed. The rest of the info string is meta for the site that renders it, such as a `title="…"` shown above the
