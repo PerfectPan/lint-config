@@ -177,6 +177,14 @@ describe("checkDocTranslations, sibling layout", () => {
     ]);
   });
 
+  it("compares a code block's language but not the meta after it, such as a translated title", () => {
+    const source = '```ts title="Load a session"\nload();\n```\n';
+    assert.deepEqual(problems(sibling(pairRepo(source, source.replace("Load a session", "加载会话")))), []);
+    assert.deepEqual(problems(sibling(pairRepo(source, source.replace("```ts", "```js")))), [
+      'docs/x.zh-CN.md: code blocks 1 differs: docs/x.md:1 language "ts", line 3 "js" (code is copied unchanged)'
+    ]);
+  });
+
   it("finds fences nested deep in a list, and keeps their indentation", () => {
     const source = "- a\n  - b\n\n        ```sh\n        echo 1\n        ```\n";
     const changed = pairRepo(source, source.replace("echo 1", "echo 2"));
@@ -350,6 +358,28 @@ describe("checkDocTranslations, directory per language", () => {
     assert.deepEqual(checkDocTranslations(options(root)), { pairs: 2, problems: [] });
   });
 
+  it("leaves frontmatter out of the comparison and of the anchors a fragment may name", () => {
+    const root = repo({
+      "docs/en/a.md": "---\ntitle: A\n# a YAML comment\nsee: [b](b.md)\n---\n\n# A\n\n[B](b.md#hidden)\n",
+      "docs/zh-CN/a.md": "---\ntitle: 甲\n# 注释\ntags:\n  - x\n---\n\n# 甲\n\n[乙](b.md#hidden)\n",
+      "docs/en/b.md": "---\n# hidden\n---\n\n# B\n",
+      "docs/zh-CN/b.md": "---\n# hidden\n---\n\n# 乙\n"
+    });
+    assert.deepEqual(problems(options(root)), [
+      'docs/zh-CN/a.md: line 10: no heading or id "hidden" in docs/zh-CN/b.md'
+    ]);
+  });
+
+  it("numbers lines from the top of each file when both have frontmatter of different lengths", () => {
+    const root = repo({
+      "docs/en/a.md": "---\ntitle: A\n---\n\n# A\n\n## Usage\n",
+      "docs/zh-CN/a.md": "---\ntitle: 甲\nsummary: 乙\n---\n\n# 甲\n\n### 用法\n"
+    });
+    assert.deepEqual(problems(options(root)), [
+      'docs/zh-CN/a.md: headings 2 differs: docs/en/a.md:7 level 2 "Usage", line 8 level 3 "用法"'
+    ]);
+  });
+
   it("reports the unmatched side of a mirrored tree", () => {
     const root = repo({ "docs/en/a.md": "# A\n", "docs/zh-CN/b.md": "# B\n" });
     assert.deepEqual(problems(options(root)), [
@@ -428,6 +458,68 @@ describe("runDocTranslations", () => {
     };
     assert.equal(quiet(() => runDocTranslations(options, ["--write", join(root, "docs/en/a.md")])).code, 0);
     assert.match(readFileSync(join(root, "docs/zh-CN/a.md"), "utf8"), /^<!-- source-blob: [0-9a-f]{40} -->\n\n# 甲\n$/);
+  });
+
+  it("keeps the stamp in the frontmatter of a site page, and the header after the frontmatter", () => {
+    const page = "---\ntitle: A\n---\n\n# A\n";
+    const pageZh = "---\ntitle: 甲\n---\n\n> 译文\n\n# 甲\n";
+    const root = repo({ "site/en/a.mdx": page, "site/zh/a.mdx": pageZh });
+    const options = {
+      root,
+      sources: ["site/en/*.mdx"],
+      translations: ["site/zh/*.mdx"],
+      translationOf: (path) => path.replace("/en/", "/zh/"),
+      header: () => "> 译文",
+      stamp: true
+    };
+    const missing = quiet(() => runDocTranslations(options, []));
+    assert.equal(missing.code, 1);
+    assert.match(missing.lines.join("\n"), /site\/zh\/a\.mdx: no "source-blob: …" key in the frontmatter/);
+
+    assert.equal(quiet(() => runDocTranslations(options, ["--write", join(root, "site/en/a.mdx")])).code, 0);
+    // `git hash-object` prints this hash for `page`.
+    const recorded = pageZh.replace(
+      "title: 甲\n",
+      "title: 甲\nsource-blob: d3f971e483068ccb3d75e483d41de1c9941efdef\n"
+    );
+    assert.equal(readFileSync(join(root, "site/zh/a.mdx"), "utf8"), recorded);
+
+    writeFileSync(join(root, "site/en/a.mdx"), `${page}\nMore.\n`);
+    assert.match(
+      quiet(() => runDocTranslations(options, [])).lines.join("\n"),
+      /site\/en\/a\.mdx changed since this translation was recorded/
+    );
+    assert.equal(quiet(() => runDocTranslations(options, ["--write", join(root, "site/zh/a.mdx")])).code, 0);
+    assert.equal(readFileSync(join(root, "site/zh/a.mdx"), "utf8").match(/source-blob/g).length, 1);
+
+    // A key written by hand in another form is reported and replaced, never kept beside a second key.
+    const hash = "0".repeat(40);
+    const handWritten = [
+      'source-blob: "d3f971e4"',
+      `source-blob :  ${hash}`,
+      `"source-blob": ${hash}`,
+      `source-blob: >-\n  ${hash}`,
+      `source-blob: ${hash}\nsource-blob: ${hash}`
+    ];
+    for (const written of handWritten) {
+      writeFileSync(join(root, "site/zh/a.mdx"), pageZh.replace("title: 甲\n", `${written}\ntitle: 甲\n`));
+      assert.deepEqual(
+        problems(options),
+        [
+          'site/zh/a.mdx: "source-blob" in the frontmatter must be one line "source-blob: <Git blob hash in lowercase hex>"; once it matches site/en/a.mdx, run with --write site/zh/a.mdx'
+        ],
+        written
+      );
+      assert.equal(quiet(() => runDocTranslations(options, ["--write", join(root, "site/zh/a.mdx")])).code, 0, written);
+      assert.match(
+        readFileSync(join(root, "site/zh/a.mdx"), "utf8"),
+        /^---\nsource-blob: [0-9a-f]{40}\ntitle: 甲\n---\n/,
+        written
+      );
+    }
+
+    writeFileSync(join(root, "site/zh/a.mdx"), pageZh.replace("> 译文", "> 中文"));
+    assert.deepEqual(problems(options), ["site/zh/a.mdx: first line after the frontmatter must be: > 译文"]);
   });
 
   it("hashes a CRLF checkout like the LF file Git stores", () => {

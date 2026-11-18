@@ -20,6 +20,8 @@ const HTML_TARGET = /\b(?:href|src)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
 const HTML_ANCHOR = /\b(?:id|name)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
 const EXTERNAL = /^(?:[a-z][a-z0-9+.-]*:|\/\/)/i;
 const STAMP = /^<!-- source-blob: ([0-9a-f]{40}) -->$/;
+const FRONTMATTER_STAMP_KEY = /^(["']?)source-blob\1\s*:/;
+const FRONTMATTER_STAMP = /^source-blob: ([0-9a-f]{40})$/;
 const ENTITIES = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: "\u00a0" };
 const USAGE = "usage: doc-translations [--write <document or translation>...]";
 
@@ -127,7 +129,10 @@ function fences(lines, firstLine) {
       }
     } else if (open && !(open[1][0] === "`" && open[2].includes("`"))) {
       inFence.push(true);
-      fence = { marker: open[1], block: { line: firstLine + index, lines: [open[2].trim()] } };
+      // Only the language word of the info string is compared. The rest is meta for the site that renders the block,
+      // such as a `title="…"` caption shown above it, which a translation translates like any other caption.
+      const language = open[2].trim().split(/\s/, 1)[0];
+      fence = { marker: open[1], block: { line: firstLine + index, lines: [language] } };
     } else {
       inFence.push(false);
     }
@@ -226,6 +231,22 @@ function signature(text, firstLine = 1) {
   return result;
 }
 
+/**
+ * The index of the `---` line closing the YAML frontmatter that opens a document, or -1 when it has none.
+ * Documentation sites (MDX, VitePress, Docusaurus) keep page metadata there; it is not Markdown, so neither side's
+ * frontmatter is compared.
+ */
+function frontmatterEnd(lines) {
+  return lines[0] === "---" ? lines.indexOf("---", 1) : -1;
+}
+
+/** The signature of a document's Markdown after its frontmatter. */
+function documentSignature(text) {
+  const lines = text.split("\n");
+  const start = frontmatterEnd(lines) + 1;
+  return signature(lines.slice(start).join("\n"), start + 1);
+}
+
 /** Splits a link target into an external URL or a repository path resolved from `from`, plus its fragment. */
 function resolveTarget(from, target) {
   if (EXTERNAL.test(target)) {
@@ -276,26 +297,67 @@ function discover(options) {
 }
 
 /**
- * Splits the translation's header and stamp lines from its body. `stamp` is the recorded hash, or undefined when the
- * stamp line is missing; `stampIndex` is where a stamp line is or would be inserted.
+ * Splits the translation's frontmatter, header and stamp from its body. The header is the first line after the
+ * frontmatter. The stamp is a `source-blob` key in the frontmatter when there is one, because MDX does not compile
+ * HTML comments and a site page keeps its metadata there; otherwise it is a comment line after the header. `stamp` is
+ * the recorded hash, or undefined when it is missing or, with `badStamp`, not a hash. `withStamp(hash)` returns the
+ * text with that hash recorded.
  */
 function translationParts(text, header) {
   const lines = text.split("\n");
-  let index = Math.max(
-    lines.findIndex((line) => line.trim() !== ""),
-    0
-  );
+  const end = frontmatterEnd(lines);
+  const first = lines.findIndex((line, i) => i > end && line.trim() !== "");
+  let index = first === -1 ? end + 1 : first;
   const headerMatches = header === undefined || lines[index] === header;
   if (header !== undefined && headerMatches) {
     index++;
+  }
+  if (end !== -1) {
+    // Keys are found by name and the value checked apart, so that `--write` replaces a hand-written key, with every
+    // repeat and every indented line continuing its value, instead of adding a second key, which YAML parsers reject.
+    const stampLines = [];
+    let inValue = false;
+    for (let i = 1; i < end; i++) {
+      inValue = FRONTMATTER_STAMP_KEY.test(lines[i]) || (inValue && /^[ \t]/.test(lines[i]));
+      if (inValue) {
+        stampLines.push(i);
+      }
+    }
+    const stamp = stampLines.length === 1 ? FRONTMATTER_STAMP.exec(lines[stampLines[0]])?.[1] : undefined;
+    return {
+      lines,
+      frontmatter: true,
+      headerMatches,
+      stamp,
+      badStamp: stampLines.length > 0 && stamp === undefined,
+      bodyStart: index,
+      withStamp: (hash) => {
+        const line = `source-blob: ${hash}`;
+        if (stampLines.length === 0) {
+          return lines.toSpliced(end, 0, line).join("\n");
+        }
+        const [first] = stampLines;
+        return lines.flatMap((text, i) => (i === first ? [line] : stampLines.includes(i) ? [] : [text])).join("\n");
+      }
+    };
   }
   let next = index;
   while (next < lines.length && lines[next].trim() === "") {
     next++;
   }
   const stamp = STAMP.exec(lines[next] ?? "")?.[1];
-  const bodyStart = stamp ? next + 1 : index;
-  return { lines, headerMatches, stamp, stampIndex: index, stampLine: next, bodyStart };
+  return {
+    lines,
+    frontmatter: false,
+    headerMatches,
+    stamp,
+    bodyStart: stamp ? next + 1 : index,
+    withStamp: (hash) => {
+      const line = `<!-- source-blob: ${hash} -->`;
+      const inserted = index === 0 ? [line, ""] : ["", line];
+      return (stamp ? lines.with(next, line) : lines.toSpliced(index, 0, ...inserted)).join("\n");
+    }
+  };
 }
 
 function compareSequence(name, items, key, describe) {
@@ -331,9 +393,9 @@ function checkPair(context, source, translation) {
   const header = context.header?.(source);
   const parts = translationParts(readText(root, translation), header);
   if (!parts.headerMatches) {
-    add(`first line must be: ${header}`);
+    add(`${parts.frontmatter ? "first line after the frontmatter" : "first line"} must be: ${header}`);
   }
-  const a = signature(sourceText);
+  const a = documentSignature(sourceText);
   const b = signature(parts.lines.slice(parts.bodyStart).join("\n"), parts.bodyStart + 1);
   const sides = (key) => [
     { path: source, list: a[key] },
@@ -354,7 +416,7 @@ function checkPair(context, source, translation) {
     (x, y) => {
       const offset = x.lines.findIndex((line, i) => line !== y.lines[i]);
       const k = offset === -1 ? x.lines.length : offset;
-      const what = k === 0 ? "info string" : "line";
+      const what = k === 0 ? "language" : "line";
       return `${source}:${x.line + k} ${what} ${shorten(x.lines[k])}, line ${y.line + k} ${shorten(y.lines[k])} (code is copied unchanged)`;
     }
   );
@@ -403,7 +465,7 @@ function checkPair(context, source, translation) {
       continue;
     }
     if (!context.anchors.has(resolved.path)) {
-      context.anchors.set(resolved.path, signature(readText(root, resolved.path)).anchors);
+      context.anchors.set(resolved.path, documentSignature(readText(root, resolved.path)).anchors);
     }
     const anchors = resolved.path === translation ? b.anchors : context.anchors.get(resolved.path);
     const fragment = decode(resolved.fragment);
@@ -415,9 +477,12 @@ function checkPair(context, source, translation) {
   const current = blobHash(sourceText);
   if (context.stamp && parts.headerMatches) {
     if (parts.stamp === undefined) {
-      add(
-        `no "<!-- source-blob: … -->" line after the header; once it matches ${source}, run with --write ${translation}`
-      );
+      const missing = parts.badStamp
+        ? '"source-blob" in the frontmatter must be one line "source-blob: <Git blob hash in lowercase hex>"'
+        : parts.frontmatter
+          ? 'no "source-blob: …" key in the frontmatter'
+          : 'no "<!-- source-blob: … -->" line after the header';
+      add(`${missing}; once it matches ${source}, run with --write ${translation}`);
     } else if (parts.stamp !== current) {
       add(
         `${source} changed since this translation was recorded (git show ${parts.stamp.slice(0, 12)} prints the recorded text); update the translation, then run with --write ${translation}`
@@ -454,14 +519,7 @@ function recordDocTranslations(options, files) {
       problems.push(...result.problems);
       continue;
     }
-    const { lines, stamp, stampIndex, stampLine } = result.parts;
-    const line = `<!-- source-blob: ${result.current} -->`;
-    if (stamp === undefined) {
-      lines.splice(stampIndex, 0, ...(stampIndex === 0 ? [line, ""] : ["", line]));
-    } else {
-      lines[stampLine] = line;
-    }
-    writeFileSync(join(context.root, translation), lines.join("\n"));
+    writeFileSync(join(context.root, translation), result.parts.withStamp(result.current));
     recorded.push(translation);
   }
   return { recorded, problems };

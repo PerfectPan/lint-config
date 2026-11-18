@@ -198,6 +198,13 @@ PerfectPan/rivus-agent (`docs/en` and `docs/zh-CN` trees), so the layout is the 
   `id` and `name` attributes outside code. The heading text is rendered first: code spans keep their content,
   links and images keep their text, HTML tags, `_` emphasis and backslash escapes are removed, and character
   references are decoded. Other inline forms, such as `*` inside a word, can give an anchor GitHub does not.
+- **Code is compared, captions are not:** a code block's body and language are copied unchanged, so a reader of
+  either language runs the same code; a translated block cannot be compared at all, so drift inside it goes
+  unnoticed. The rest of the info string is meta for the site that renders it, such as a `title="…"` shown above the
+  block, which is a caption and is translated like one.
+- **Frontmatter is metadata:** documentation sites (MDX, VitePress, Docusaurus) start a page with YAML frontmatter
+  whose values, such as `title`, are translated and whose keys are the site's, so neither side's frontmatter is
+  compared and a translation's header is the first line after it.
 - **Structure in order, not counts:** a translation with the same number of headings but a level moved, or a code
   block edited and another dropped, says something different. The first divergence of each kind is reported with
   both line numbers.
@@ -212,7 +219,10 @@ PerfectPan/rivus-agent (`docs/en` and `docs/zh-CN` trees), so the layout is the 
   again. CRLF is read as LF so a Windows checkout hashes like the stored file. The line sits in the translation
   rather than a separate record file, so two changes to different pairs never touch the same file; `--write` takes
   the pairs to record by name because recording is the act of confirming them, and it refuses a pair that fails any
-  other check.
+  other check. In a translation with frontmatter the hash is a `source-blob` key there instead of a comment line:
+  MDX does not compile HTML comments, and a comment above the frontmatter would stop it being frontmatter. A site
+  whose page schema rejects unknown keys declares `source-blob`; fumadocs' default page schema, a zod `z.object`,
+  strips it.
 
 ## Opt-in checks
 
